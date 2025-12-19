@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Monitoring | Smart City Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="styles.css"> 
+    <style>
+        /* General Layout Styles (Consistency) */
+        .sidebar {
+            height: 100vh;
+            background-color: #2c3e50;
+            padding-top: 20px;
+        }
+        .sidebar a {
+            color: #ecf0f1;
+            padding: 15px 20px;
+            text-decoration: none;
+            display: block;
+            border-bottom: 1px solid #34495e;
+        }
+        .sidebar a:hover, .sidebar .active {
+            background-color: #3498db;
+            color: white;
+        }
+        .main-content {
+            padding: 30px;
+        }
+        .anomaly-alert {
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border-color: #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+
+<div class="d-flex">
+    <div class="sidebar d-flex flex-column" style="width: 250px;">
+        <h4 class="text-white text-center mb-4">Smart City Portal</h4>
+        <a href="dashboard.html"><i class="fas fa-th-large me-2"></i> Dashboard</a>
+        <a href="traffic.html"><i class="fas fa-car-side me-2"></i> Traffic Management</a>
+        <a href="parking.html"><i class="fas fa-parking me-2"></i> Smart Parking System</a>
+        <a href="waste.html"><i class="fas fa-trash-alt me-2"></i> Waste Management</a>
+        <a href="energy.html" class="active"><i class="fas fa-bolt me-2"></i> Energy Monitoring</a>
+        <a href="pollution.html"><i class="fas fa-smog me-2"></i> Air Quality Monitoring</a>
+        <a href="emergency.html"><i class="fas fa-ambulance me-2"></i> Emergency Response</a>
+        <a href="index.html" class="mt-auto" onclick="sessionStorage.removeItem('userRole');"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
+    </div>
+
+    <div class="main-content flex-grow-1">
+        <header class="mb-5 border-bottom pb-3">
+            <h1>Smart Energy Monitoring System</h1>
+            <p class="lead text-muted">Monitor real-time energy, water, and gas usage from sectors (Table: **EnergyUsage**).</p>
+        </header>
+
+        <section class="mb-5 p-4 border rounded shadow-sm bg-white">
+            <h2 class="h4 mb-3"><i class="fas fa-chart-area me-2 text-warning"></i> Daily Consumption Trends (kWh)</h2>
+            <div style="height: 300px;">
+                <canvas id="energyChart"></canvas>
+            </div>
+            <div class="alert anomaly-alert mt-4" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i> **Anomaly Alert:** Industrial Sector A usage spike detected at 14:30.
+            </div>
+            <p class="mt-3 text-center text-info">Visual summary based on the **EnergyUsage** table.</p>
+        </section>
+        
+        <hr>
+
+        <section class="mb-5">
+            <h2 class="h4 mb-4"><i class="fas fa-list-alt me-2 text-warning"></i> Energy Usage Records (Table: EnergyUsage)</h2>
+            
+            <div class="d-flex justify-content-between mb-3">
+                
+                <div class="input-group" style="width: 350px;">
+                    <input type="text" class="form-control" placeholder="Search by Meter ID or Sector" aria-label="Search Energy Data" id="searchEnergyData">
+                    <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
+                </div>
+
+                <button class="btn btn-success" id="btnAddUsage" data-bs-toggle="modal" data-bs-target="#addUsageModal">
+                    <i class="fas fa-plus me-1"></i> Add New Usage Record
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Usage ID</th>
+                            <th>Meter ID</th>
+                            <th>Sector</th>
+                            <th>Timestamp</th>
+                            <th>Consumption (kWh)</th>
+                            <th>Anomaly</th>
+                            <th id="actionsHeader">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="energyTableBody">
+                        <tr>
+                            <td>E001</td>
+                            <td>M501</td>
+                            <td>Residential</td>
+                            <td>2025-11-28 15:00:00</td>
+                            <td>5.2</td>
+                            <td>No</td>
+                            <td class="action-buttons">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="E001" data-bs-toggle="modal" data-bs-target="#addUsageModal"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-danger delete-btn" data-id="E001"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>E002</td>
+                            <td>M720</td>
+                            <td>Industrial</td>
+                            <td>2025-11-28 14:30:00</td>
+                            <td>155.8</td>
+                            <td><span class="badge bg-danger">High</span></td>
+                            <td class="action-buttons">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="E002" data-bs-toggle="modal" data-bs-target="#addUsageModal"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-danger delete-btn" data-id="E002"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </td>
+                        </tr>
+                        </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="modal fade" id="addUsageModal" tabindex="-1" aria-labelledby="addUsageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUsageModalLabel">Add/Edit Energy Usage Record</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="usageForm">
+                    <input type="hidden" id="usageId">
+                    <div class="mb-3">
+                        <label for="meterId" class="form-label">Meter ID</label>
+                        <input type="text" class="form-control" id="meterId" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sector" class="form-label">Sector</label>
+                        <select class="form-select" id="sector">
+                            <option value="Residential">Residential</option>
+                            <option value="Commercial">Commercial</option>
+                            <option value="Industrial">Industrial</option>
+                            <option value="Public">Public</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="usageTimestamp" class="form-label">Timestamp</label>
+                        <input type="datetime-local" class="form-control" id="usageTimestamp" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="consumption" class="form-label">Consumption (kWh)</label>
+                        <input type="number" step="0.1" class="form-control" id="consumption" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Save Record</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const userRole = sessionStorage.getItem('userRole');
+    const isCitizen = userRole === 'citizen';
+    
+    // 1. ROLE-BASED ACCESS CONTROL (CRUD HIDING)
+    function applyRolePermissions() {
+        if (isCitizen) {
+            // Hide the Add Button
+            document.getElementById('btnAddUsage').style.display = 'none';
+            
+            // Hide the 'Actions' header column
+            document.getElementById('actionsHeader').style.display = 'none';
+
+            // Hide the Edit and Delete buttons in the table body
+            document.querySelectorAll('.action-buttons').forEach(cell => {
+                cell.style.display = 'none';
+            });
+        }
+    }
+    
+    // 2. SEARCH FUNCTIONALITY (Client-side example)
+    document.getElementById('searchEnergyData').addEventListener('keyup', function() {
+        const searchText = this.value.toLowerCase();
+        const rows = document.getElementById('energyTableBody').getElementsByTagName('tr');
+        
+        Array.from(rows).forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            row.style.display = rowText.includes(searchText) ? '' : 'none';
+        });
+    });
+
+    // 3. CRUD (ADMIN ONLY) - Placeholder Functions
+    document.getElementById('usageForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (isCitizen) return; 
+        
+        const usageId = document.getElementById('usageId').value;
+        const meterId = document.getElementById('meterId').value;
+        
+        if (usageId) {
+            alert(`[ADMIN ACTION] Attempting to EDIT Usage Record ID ${usageId} (Meter: ${meterId}). Requires PHP/MySQL backend.`);
+            // **TODO: Implement AJAX PUT/POST request to PHP endpoint for UPDATE**
+        } else {
+            alert(`[ADMIN ACTION] Attempting to ADD new Usage Record (Meter: ${meterId}). Requires PHP/MySQL backend.`);
+            // **TODO: Implement AJAX POST request to PHP endpoint for CREATE**
+        }
+        
+        const modalElement = document.getElementById('addUsageModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) modal.hide();
+    });
+
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            if (isCitizen) return; 
+            const id = this.getAttribute('data-id');
+            if (confirm(`[ADMIN ACTION] Are you sure you want to DELETE Usage Record ID ${id}?`)) {
+                alert(`Deleting Usage Record ID ${id}. Requires PHP/MySQL backend.`);
+                // **TODO: Implement AJAX DELETE request to PHP endpoint**
+            }
+        });
+    });
+    
+    // 4. CHART SIMULATION (Chart.js implementation)
+    function renderEnergyChart() {
+        const ctx = document.getElementById('energyChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'],
+                datasets: [{
+                    label: 'Total City Energy Consumption (kWh)',
+                    data: [1500, 1650, 1800, 1950, 1700, 2500, 2100], // Note the spike at 14:00
+                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                    borderColor: 'rgba(255, 193, 7, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Initialize all components
+    applyRolePermissions();
+    renderEnergyChart();
+</script>
+
+</body>
+</html>
