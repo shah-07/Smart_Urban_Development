@@ -32,6 +32,22 @@
         .spot-available { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
         .spot-reserved { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
         .spot-occupied { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+        .table-section {
+            margin-bottom: 40px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -71,14 +87,14 @@
         
         <hr>
 
-        <section class="mb-5">
-            <h2 class="h4 mb-4"><i class="fas fa-table me-2 text-primary"></i> Reservation Logs (Table: Reservations)</h2>
+        <!-- Table 1 - Reservations -->
+        <section class="table-section">
+            <h2 class="h4 mb-4"><i class="fas fa-table me-2 text-primary"></i> Table 1 - Reservations</h2>
             
             <div class="d-flex justify-content-between mb-3">
-                
                 <div class="input-group" style="width: 350px;">
-                    <input type="text" class="form-control" placeholder="Search by Spot ID or User ID" aria-label="Search Reservations" id="searchReservationsData">
-                    <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
+                    <input type="text" class="form-control" placeholder="Search by Reservation ID or Spot ID" aria-label="Search Reservations" id="searchReservationsData">
+                    <button class="btn btn-outline-secondary" type="button" id="searchReservationsBtn"><i class="fas fa-search"></i></button>
                 </div>
 
                 <button class="btn btn-success" id="btnAddReservation" data-bs-toggle="modal" data-bs-target="#addReservationModal">
@@ -92,46 +108,180 @@
                         <tr>
                             <th>Reservation ID</th>
                             <th>Spot ID</th>
-                            <th>User/Vehicle ID</th>
+                            <th>Citizen ID</th>
                             <th>Start Time</th>
                             <th>End Time</th>
-                            <th>Status</th>
-                            <th id="actionsHeader">Actions</th>
+                            <th>Payment Gateway</th>
+                            <th>Amount Paid</th>
+                            <th id="reservationActionsHeader">Action Buttons</th>
                         </tr>
                     </thead>
                     <tbody id="reservationsTableBody">
                         <tr>
-                            <td>R001</td>
+                            <td>RES001</td>
                             <td>P003</td>
-                            <td>U101</td>
-                            <td>2025-11-28 09:00</td>
-                            <td>2025-11-28 12:00</td>
-                            <td>Active</td>
-                            <td class="action-buttons">
-                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="R001" data-bs-toggle="modal" data-bs-target="#addReservationModal"><i class="fas fa-edit"></i> Edit</button>
-                                <button class="btn btn-sm btn-danger delete-btn" data-id="R001"><i class="fas fa-trash-alt"></i> Cancel</button>
+                            <td>CIT1001</td>
+                            <td>2025-11-28 09:00:00</td>
+                            <td>2025-11-28 12:00:00</td>
+                            <td>PayPal</td>
+                            <td>$12.50</td>
+                            <td class="action-buttons reservation-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-reservation-btn" data-id="RES001"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-danger delete-reservation-btn" data-id="RES001"><i class="fas fa-trash-alt"></i> Cancel</button>
                             </td>
                         </tr>
                         <tr>
-                            <td>R002</td>
+                            <td>RES002</td>
                             <td>P007</td>
-                            <td>U105</td>
-                            <td>2025-11-28 14:00</td>
-                            <td>2025-11-28 16:00</td>
-                            <td>Pending</td>
-                            <td class="action-buttons">
-                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="R002" data-bs-toggle="modal" data-bs-target="#addReservationModal"><i class="fas fa-edit"></i> Edit</button>
-                                <button class="btn btn-sm btn-danger delete-btn" data-id="R002"><i class="fas fa-trash-alt"></i> Cancel</button>
+                            <td>CIT1005</td>
+                            <td>2025-11-28 14:00:00</td>
+                            <td>2025-11-28 16:00:00</td>
+                            <td>Stripe</td>
+                            <td>$8.00</td>
+                            <td class="action-buttons reservation-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-reservation-btn" data-id="RES002"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-danger delete-reservation-btn" data-id="RES002"><i class="fas fa-trash-alt"></i> Cancel</button>
                             </td>
                         </tr>
-                        </tbody>
+                        <tr>
+                            <td>RES003</td>
+                            <td>P001</td>
+                            <td>CIT1012</td>
+                            <td>2025-11-29 10:30:00</td>
+                            <td>2025-11-29 14:30:00</td>
+                            <td>Credit Card</td>
+                            <td>$15.00</td>
+                            <td class="action-buttons reservation-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-reservation-btn" data-id="RES003"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-danger delete-reservation-btn" data-id="RES003"><i class="fas fa-trash-alt"></i> Cancel</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>RES004</td>
+                            <td>P004</td>
+                            <td>CIT1008</td>
+                            <td>2025-11-30 08:00:00</td>
+                            <td>2025-11-30 17:00:00</td>
+                            <td>Apple Pay</td>
+                            <td>$22.50</td>
+                            <td class="action-buttons reservation-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-reservation-btn" data-id="RES004"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-danger delete-reservation-btn" data-id="RES004"><i class="fas fa-trash-alt"></i> Cancel</button>
+                            </td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
+        </section>
+
+        <!-- Table 2 - Parking Spots -->
+        <section class="table-section">
+            <h2 class="h4 mb-4"><i class="fas fa-parking me-2 text-primary"></i> Table 2 - Parking Spots</h2>
             
+            <div class="d-flex justify-content-between mb-3">
+                <div class="input-group" style="width: 350px;">
+                    <input type="text" class="form-control" placeholder="Search by Spot ID or City" aria-label="Search Parking Spots" id="searchParkingSpotsData">
+                    <button class="btn btn-outline-secondary" type="button" id="searchParkingSpotsBtn"><i class="fas fa-search"></i></button>
+                </div>
+
+                <button class="btn btn-success" id="btnAddParkingSpot" data-bs-toggle="modal" data-bs-target="#addParkingSpotModal">
+                    <i class="fas fa-plus me-1"></i> Add New Parking Spot
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Spot ID</th>
+                            <th>Road</th>
+                            <th>Area</th>
+                            <th>City</th>
+                            <th>Available Status</th>
+                            <th>Parking Lot Capacity</th>
+                            <th>Parking Lot ID</th>
+                            <th id="parkingActionsHeader">Action Buttons</th>
+                        </tr>
+                    </thead>
+                    <tbody id="parkingSpotsTableBody">
+                        <tr>
+                            <td>P001</td>
+                            <td>Main Street</td>
+                            <td>Downtown</td>
+                            <td>Metropolis</td>
+                            <td><span class="badge bg-success">Available</span></td>
+                            <td>50</td>
+                            <td>LOT001</td>
+                            <td class="action-buttons parking-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-parking-btn" data-id="P001" data-bs-toggle="modal" data-bs-target="#editParkingSpotModal"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-warning text-white me-1 update-status-btn" data-id="P001"><i class="fas fa-sync"></i> Update Status</button>
+                                <button class="btn btn-sm btn-danger delete-parking-btn" data-id="P001"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>P002</td>
+                            <td>Oak Avenue</td>
+                            <td>Business District</td>
+                            <td>Metropolis</td>
+                            <td><span class="badge bg-danger">Occupied</span></td>
+                            <td>75</td>
+                            <td>LOT002</td>
+                            <td class="action-buttons parking-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-parking-btn" data-id="P002" data-bs-toggle="modal" data-bs-target="#editParkingSpotModal"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-warning text-white me-1 update-status-btn" data-id="P002"><i class="fas fa-sync"></i> Update Status</button>
+                                <button class="btn btn-sm btn-danger delete-parking-btn" data-id="P002"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>P003</td>
+                            <td>Park Lane</td>
+                            <td>Central Park</td>
+                            <td>Metropolis</td>
+                            <td><span class="badge bg-warning">Reserved</span></td>
+                            <td>100</td>
+                            <td>LOT003</td>
+                            <td class="action-buttons parking-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-parking-btn" data-id="P003" data-bs-toggle="modal" data-bs-target="#editParkingSpotModal"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-warning text-white me-1 update-status-btn" data-id="P003"><i class="fas fa-sync"></i> Update Status</button>
+                                <button class="btn btn-sm btn-danger delete-parking-btn" data-id="P003"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>P004</td>
+                            <td>River Road</td>
+                            <td>Riverside</td>
+                            <td>Metropolis</td>
+                            <td><span class="badge bg-success">Available</span></td>
+                            <td>60</td>
+                            <td>LOT004</td>
+                            <td class="action-buttons parking-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-parking-btn" data-id="P004" data-bs-toggle="modal" data-bs-target="#editParkingSpotModal"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-warning text-white me-1 update-status-btn" data-id="P004"><i class="fas fa-sync"></i> Update Status</button>
+                                <button class="btn btn-sm btn-danger delete-parking-btn" data-id="P004"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>P005</td>
+                            <td>High Street</td>
+                            <td>Uptown</td>
+                            <td>Metropolis</td>
+                            <td><span class="badge bg-danger">Occupied</span></td>
+                            <td>80</td>
+                            <td>LOT005</td>
+                            <td class="action-buttons parking-actions">
+                                <button class="btn btn-sm btn-info text-white me-1 edit-parking-btn" data-id="P005" data-bs-toggle="modal" data-bs-target="#editParkingSpotModal"><i class="fas fa-edit"></i> Edit</button>
+                                <button class="btn btn-sm btn-warning text-white me-1 update-status-btn" data-id="P005"><i class="fas fa-sync"></i> Update Status</button>
+                                <button class="btn btn-sm btn-danger delete-parking-btn" data-id="P005"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
     </div>
 </div>
 
+<!-- Reservation Modal -->
 <div class="modal fade" id="addReservationModal" tabindex="-1" aria-labelledby="addReservationModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -143,22 +293,175 @@
                 <form id="reservationForm">
                     <input type="hidden" id="reservationId">
                     <div class="mb-3">
-                        <label for="spotId" class="form-label">Spot ID</label>
+                        <label for="spotId" class="form-label">Spot ID *</label>
                         <input type="text" class="form-control" id="spotId" required>
                     </div>
                     <div class="mb-3">
-                        <label for="userId" class="form-label">User/Vehicle ID</label>
-                        <input type="text" class="form-control" id="userId" required>
+                        <label for="citizenId" class="form-label">Citizen ID *</label>
+                        <input type="text" class="form-control" id="citizenId" required>
                     </div>
                     <div class="mb-3">
-                        <label for="startTime" class="form-label">Start Time</label>
+                        <label for="startTime" class="form-label">Start Time *</label>
                         <input type="datetime-local" class="form-control" id="startTime" required>
                     </div>
                     <div class="mb-3">
-                        <label for="endTime" class="form-label">End Time</label>
+                        <label for="endTime" class="form-label">End Time *</label>
                         <input type="datetime-local" class="form-control" id="endTime" required>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Save Reservation</button>
+                    <div class="mb-3">
+                        <label for="paymentGateway" class="form-label">Payment Gateway *</label>
+                        <select class="form-control" id="paymentGateway" required>
+                            <option value="">Select Payment Gateway</option>
+                            <option value="PayPal">PayPal</option>
+                            <option value="Stripe">Stripe</option>
+                            <option value="Credit Card">Credit Card</option>
+                            <option value="Apple Pay">Apple Pay</option>
+                            <option value="Google Pay">Google Pay</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="amountPaid" class="form-label">Amount Paid ($) *</label>
+                        <input type="number" class="form-control" id="amountPaid" step="0.01" min="0" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Save Reservation</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Parking Spot Modal -->
+<div class="modal fade" id="addParkingSpotModal" tabindex="-1" aria-labelledby="addParkingSpotModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addParkingSpotModalLabel">Add New Parking Spot</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="parkingSpotForm">
+                    <div class="mb-3">
+                        <label for="newSpotId" class="form-label">Spot ID *</label>
+                        <input type="text" class="form-control" id="newSpotId" required>
+                        <div class="form-text">Format: P followed by numbers (e.g., P006)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="road" class="form-label">Road *</label>
+                        <input type="text" class="form-control" id="road" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="area" class="form-label">Area *</label>
+                        <input type="text" class="form-control" id="area" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="city" class="form-label">City *</label>
+                        <input type="text" class="form-control" id="city" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="availableStatus" class="form-label">Available Status *</label>
+                        <select class="form-control" id="availableStatus" required>
+                            <option value="Available">Available</option>
+                            <option value="Occupied">Occupied</option>
+                            <option value="Reserved">Reserved</option>
+                            <option value="Maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="parkingLotCapacity" class="form-label">Parking Lot Capacity *</label>
+                        <input type="number" class="form-control" id="parkingLotCapacity" min="1" max="1000" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="parkingLotId" class="form-label">Parking Lot ID *</label>
+                        <input type="text" class="form-control" id="parkingLotId" required>
+                        <div class="form-text">Format: LOT followed by numbers (e.g., LOT001)</div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">Add Parking Spot</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Parking Spot Modal -->
+<div class="modal fade" id="editParkingSpotModal" tabindex="-1" aria-labelledby="editParkingSpotModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editParkingSpotModalLabel">Edit Parking Spot</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editParkingSpotForm">
+                    <input type="hidden" id="editSpotId">
+                    <div class="mb-3">
+                        <label for="editRoad" class="form-label">Road *</label>
+                        <input type="text" class="form-control" id="editRoad" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editArea" class="form-label">Area *</label>
+                        <input type="text" class="form-control" id="editArea" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCity" class="form-label">City *</label>
+                        <input type="text" class="form-control" id="editCity" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editAvailableStatus" class="form-label">Available Status *</label>
+                        <select class="form-control" id="editAvailableStatus" required>
+                            <option value="Available">Available</option>
+                            <option value="Occupied">Occupied</option>
+                            <option value="Reserved">Reserved</option>
+                            <option value="Maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editParkingLotCapacity" class="form-label">Parking Lot Capacity *</label>
+                        <input type="number" class="form-control" id="editParkingLotCapacity" min="1" max="1000" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editParkingLotId" class="form-label">Parking Lot ID *</label>
+                        <input type="text" class="form-control" id="editParkingLotId" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Update Parking Spot</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Status Modal -->
+<div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateStatusModalLabel">Update Parking Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="updateStatusForm">
+                    <input type="hidden" id="statusSpotId">
+                    <div class="mb-3">
+                        <label for="newStatus" class="form-label">Select New Status</label>
+                        <select class="form-control" id="newStatus" required>
+                            <option value="Available">Available</option>
+                            <option value="Occupied">Occupied</option>
+                            <option value="Reserved">Reserved</option>
+                            <option value="Maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-warning">Update Status</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -167,73 +470,459 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const userRole = sessionStorage.getItem('userRole');
+    const userRole = sessionStorage.getItem('userRole') || 'admin'; // Default to admin for testing
     const isCitizen = userRole === 'citizen';
     
-    // 1. ROLE-BASED ACCESS CONTROL (CRUD HIDING)
+    // Sample data storage (in real app, this would be from API)
+    let reservations = [
+        { id: 'RES001', spotId: 'P003', citizenId: 'CIT1001', startTime: '2025-11-28 09:00:00', endTime: '2025-11-28 12:00:00', paymentGateway: 'PayPal', amountPaid: '$12.50' },
+        { id: 'RES002', spotId: 'P007', citizenId: 'CIT1005', startTime: '2025-11-28 14:00:00', endTime: '2025-11-28 16:00:00', paymentGateway: 'Stripe', amountPaid: '$8.00' },
+        { id: 'RES003', spotId: 'P001', citizenId: 'CIT1012', startTime: '2025-11-29 10:30:00', endTime: '2025-11-29 14:30:00', paymentGateway: 'Credit Card', amountPaid: '$15.00' },
+        { id: 'RES004', spotId: 'P004', citizenId: 'CIT1008', startTime: '2025-11-30 08:00:00', endTime: '2025-11-30 17:00:00', paymentGateway: 'Apple Pay', amountPaid: '$22.50' }
+    ];
+    
+    let parkingSpots = [
+        { spotId: 'P001', road: 'Main Street', area: 'Downtown', city: 'Metropolis', status: 'Available', capacity: 50, lotId: 'LOT001' },
+        { spotId: 'P002', road: 'Oak Avenue', area: 'Business District', city: 'Metropolis', status: 'Occupied', capacity: 75, lotId: 'LOT002' },
+        { spotId: 'P003', road: 'Park Lane', area: 'Central Park', city: 'Metropolis', status: 'Reserved', capacity: 100, lotId: 'LOT003' },
+        { spotId: 'P004', road: 'River Road', area: 'Riverside', city: 'Metropolis', status: 'Available', capacity: 60, lotId: 'LOT004' },
+        { spotId: 'P005', road: 'High Street', area: 'Uptown', city: 'Metropolis', status: 'Occupied', capacity: 80, lotId: 'LOT005' }
+    ];
+    
+    // 1. ROLE-BASED ACCESS CONTROL
     function applyRolePermissions() {
         if (isCitizen) {
-            // Hide the Add Button
+            // Hide Add buttons
             document.getElementById('btnAddReservation').style.display = 'none';
+            document.getElementById('btnAddParkingSpot').style.display = 'none';
             
-            // Hide the 'Actions' header column
-            document.getElementById('actionsHeader').style.display = 'none';
+            // Hide Actions headers
+            document.getElementById('reservationActionsHeader').style.display = 'none';
+            document.getElementById('parkingActionsHeader').style.display = 'none';
 
-            // Hide the Edit and Delete buttons in the table body
-            document.querySelectorAll('.action-buttons').forEach(cell => {
+            // Hide action buttons in both tables
+            document.querySelectorAll('.reservation-actions').forEach(cell => {
                 cell.style.display = 'none';
             });
             
-            // Citizen view: The main table shows the data, but no way to manipulate it.
+            document.querySelectorAll('.parking-actions').forEach(cell => {
+                cell.style.display = 'none';
+            });
+            
+            console.log('Citizen view: CRUD operations disabled');
+        } else {
+            console.log('Admin view: Full CRUD operations enabled');
         }
     }
     
-    // 2. SEARCH FUNCTIONALITY (Client-side example)
-    document.getElementById('searchReservationsData').addEventListener('keyup', function() {
-        const searchText = this.value.toLowerCase();
+    // 2. SEARCH FUNCTIONALITY
+    document.getElementById('searchReservationsBtn').addEventListener('click', searchReservations);
+    document.getElementById('searchParkingSpotsBtn').addEventListener('click', searchParkingSpots);
+    
+    document.getElementById('searchReservationsData').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') searchReservations();
+    });
+    
+    document.getElementById('searchParkingSpotsData').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') searchParkingSpots();
+    });
+    
+    function searchReservations() {
+        const searchText = document.getElementById('searchReservationsData').value.toLowerCase();
         const rows = document.getElementById('reservationsTableBody').getElementsByTagName('tr');
         
         Array.from(rows).forEach(row => {
             const rowText = row.textContent.toLowerCase();
             row.style.display = rowText.includes(searchText) ? '' : 'none';
         });
+    }
+    
+    function searchParkingSpots() {
+        const searchText = document.getElementById('searchParkingSpotsData').value.toLowerCase();
+        const rows = document.getElementById('parkingSpotsTableBody').getElementsByTagName('tr');
+        
+        Array.from(rows).forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            row.style.display = rowText.includes(searchText) ? '' : 'none';
+        });
+    }
+    
+    // 3. RESERVATION FUNCTIONS
+    document.getElementById('btnAddReservation').addEventListener('click', function() {
+        if (isCitizen) return;
+        document.getElementById('addReservationModalLabel').textContent = 'Add New Reservation';
+        document.getElementById('reservationForm').reset();
+        document.getElementById('reservationId').value = '';
     });
-
-    // 3. CRUD (ADMIN ONLY) - Placeholder Functions
+    
+    // Edit Reservation button handlers
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.edit-reservation-btn')) {
+            if (isCitizen) return;
+            const reservationId = e.target.closest('.edit-reservation-btn').getAttribute('data-id');
+            editReservation(reservationId);
+        }
+    });
+    
+    function editReservation(id) {
+        const reservation = reservations.find(r => r.id === id);
+        if (!reservation) return;
+        
+        document.getElementById('addReservationModalLabel').textContent = 'Edit Reservation';
+        document.getElementById('reservationId').value = reservation.id;
+        document.getElementById('spotId').value = reservation.spotId;
+        document.getElementById('citizenId').value = reservation.citizenId;
+        
+        // Format datetime for input fields
+        const startTime = reservation.startTime.replace(' ', 'T');
+        const endTime = reservation.endTime.replace(' ', 'T');
+        document.getElementById('startTime').value = startTime;
+        document.getElementById('endTime').value = endTime;
+        
+        document.getElementById('paymentGateway').value = reservation.paymentGateway;
+        document.getElementById('amountPaid').value = parseFloat(reservation.amountPaid.replace('$', ''));
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('addReservationModal'));
+        modal.show();
+    }
+    
+    // Reservation Form Submit
     document.getElementById('reservationForm').addEventListener('submit', function(event) {
         event.preventDefault();
         
-        if (isCitizen) return; // Prevent citizen submission
+        if (isCitizen) {
+            alert('Citizens cannot modify reservations.');
+            return;
+        }
         
         const reservationId = document.getElementById('reservationId').value;
         const spotId = document.getElementById('spotId').value;
+        const citizenId = document.getElementById('citizenId').value;
+        const startTime = document.getElementById('startTime').value.replace('T', ' ');
+        const endTime = document.getElementById('endTime').value.replace('T', ' ');
+        const paymentGateway = document.getElementById('paymentGateway').value;
+        const amountPaid = document.getElementById('amountPaid').value;
         
         if (reservationId) {
-            alert(`[ADMIN ACTION] Attempting to EDIT reservation ID ${reservationId} (Spot: ${spotId}). Requires PHP/MySQL backend.`);
-            // **TODO: Implement AJAX PUT/POST request to PHP endpoint for UPDATE**
+            // Update existing reservation
+            const index = reservations.findIndex(r => r.id === reservationId);
+            if (index !== -1) {
+                reservations[index] = {
+                    id: reservationId,
+                    spotId,
+                    citizenId,
+                    startTime,
+                    endTime,
+                    paymentGateway,
+                    amountPaid: `$${parseFloat(amountPaid).toFixed(2)}`
+                };
+                updateReservationTable();
+                alert(`Successfully updated reservation ID ${reservationId}`);
+            }
         } else {
-            alert(`[ADMIN ACTION] Attempting to ADD new reservation (Spot: ${spotId}). Requires PHP/MySQL backend.`);
-            // **TODO: Implement AJAX POST request to PHP endpoint for CREATE**
+            // Add new reservation
+            const newId = 'RES' + String(reservations.length + 1).padStart(3, '0');
+            const newReservation = {
+                id: newId,
+                spotId,
+                citizenId,
+                startTime,
+                endTime,
+                paymentGateway,
+                amountPaid: `$${parseFloat(amountPaid).toFixed(2)}`
+            };
+            reservations.push(newReservation);
+            updateReservationTable();
+            alert(`Successfully added new reservation ID ${newId}`);
         }
         
-        const modalElement = document.getElementById('addReservationModal');
-        const modal = bootstrap.Modal.getInstance(modalElement);
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addReservationModal'));
         if (modal) modal.hide();
     });
-
-    document.querySelectorAll('.delete-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            if (isCitizen) return; // Prevent citizen deletion
-            const id = this.getAttribute('data-id');
-            if (confirm(`[ADMIN ACTION] Are you sure you want to CANCEL/DELETE reservation ID ${id}?`)) {
-                alert(`Cancelling reservation ID ${id}. Requires PHP/MySQL backend.`);
-                // **TODO: Implement AJAX DELETE request to PHP endpoint**
-            }
-        });
+    
+    // Delete Reservation
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-reservation-btn')) {
+            if (isCitizen) return;
+            const id = e.target.closest('.delete-reservation-btn').getAttribute('data-id');
+            deleteReservation(id);
+        }
     });
     
-    // Initialize all components
-    applyRolePermissions();
+    function deleteReservation(id) {
+        if (isCitizen) return;
+        
+        if (confirm(`Are you sure you want to cancel reservation ID ${id}?`)) {
+            const index = reservations.findIndex(r => r.id === id);
+            if (index !== -1) {
+                reservations.splice(index, 1);
+                updateReservationTable();
+                alert(`Reservation ID ${id} has been cancelled.`);
+            }
+        }
+    }
+    
+    function updateReservationTable() {
+        const tbody = document.getElementById('reservationsTableBody');
+        tbody.innerHTML = '';
+        
+        reservations.forEach(reservation => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${reservation.id}</td>
+                <td>${reservation.spotId}</td>
+                <td>${reservation.citizenId}</td>
+                <td>${reservation.startTime}</td>
+                <td>${reservation.endTime}</td>
+                <td>${reservation.paymentGateway}</td>
+                <td>${reservation.amountPaid}</td>
+                <td class="action-buttons reservation-actions">
+                    <button class="btn btn-sm btn-info text-white me-1 edit-reservation-btn" data-id="${reservation.id}"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn btn-sm btn-danger delete-reservation-btn" data-id="${reservation.id}"><i class="fas fa-trash-alt"></i> Cancel</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        applyRolePermissions(); // Re-apply permissions after table update
+    }
+    
+    // 4. PARKING SPOT FUNCTIONS
+    document.getElementById('btnAddParkingSpot').addEventListener('click', function() {
+        if (isCitizen) return;
+        document.getElementById('parkingSpotForm').reset();
+    });
+    
+    // Add Parking Spot Form Submit
+    document.getElementById('parkingSpotForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (isCitizen) {
+            alert('Citizens cannot add parking spots.');
+            return;
+        }
+        
+        const spotId = document.getElementById('newSpotId').value;
+        const road = document.getElementById('road').value;
+        const area = document.getElementById('area').value;
+        const city = document.getElementById('city').value;
+        const status = document.getElementById('availableStatus').value;
+        const capacity = document.getElementById('parkingLotCapacity').value;
+        const lotId = document.getElementById('parkingLotId').value;
+        
+        // Check if spot already exists
+        if (parkingSpots.find(spot => spot.spotId === spotId)) {
+            alert(`Parking spot ${spotId} already exists. Please use a different Spot ID.`);
+            return;
+        }
+        
+        const newSpot = {
+            spotId,
+            road,
+            area,
+            city,
+            status,
+            capacity: parseInt(capacity),
+            lotId
+        };
+        
+        parkingSpots.push(newSpot);
+        updateParkingSpotsTable();
+        updateParkingVisualization();
+        
+        alert(`Successfully added new parking spot ${spotId}`);
+        
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addParkingSpotModal'));
+        if (modal) modal.hide();
+    });
+    
+    // Edit Parking Spot
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.edit-parking-btn')) {
+            if (isCitizen) return;
+            const spotId = e.target.closest('.edit-parking-btn').getAttribute('data-id');
+            editParkingSpot(spotId);
+        }
+    });
+    
+    function editParkingSpot(spotId) {
+        const spot = parkingSpots.find(s => s.spotId === spotId);
+        if (!spot) return;
+        
+        document.getElementById('editSpotId').value = spot.spotId;
+        document.getElementById('editRoad').value = spot.road;
+        document.getElementById('editArea').value = spot.area;
+        document.getElementById('editCity').value = spot.city;
+        document.getElementById('editAvailableStatus').value = spot.status;
+        document.getElementById('editParkingLotCapacity').value = spot.capacity;
+        document.getElementById('editParkingLotId').value = spot.lotId;
+        
+        const modal = new bootstrap.Modal(document.getElementById('editParkingSpotModal'));
+        modal.show();
+    }
+    
+    // Edit Parking Spot Form Submit
+    document.getElementById('editParkingSpotForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (isCitizen) return;
+        
+        const spotId = document.getElementById('editSpotId').value;
+        const road = document.getElementById('editRoad').value;
+        const area = document.getElementById('editArea').value;
+        const city = document.getElementById('editCity').value;
+        const status = document.getElementById('editAvailableStatus').value;
+        const capacity = document.getElementById('editParkingLotCapacity').value;
+        const lotId = document.getElementById('editParkingLotId').value;
+        
+        const index = parkingSpots.findIndex(s => s.spotId === spotId);
+        if (index !== -1) {
+            parkingSpots[index] = {
+                spotId,
+                road,
+                area,
+                city,
+                status,
+                capacity: parseInt(capacity),
+                lotId
+            };
+            
+            updateParkingSpotsTable();
+            updateParkingVisualization();
+            alert(`Successfully updated parking spot ${spotId}`);
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editParkingSpotModal'));
+            if (modal) modal.hide();
+        }
+    });
+    
+    // Update Status
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.update-status-btn')) {
+            if (isCitizen) return;
+            const spotId = e.target.closest('.update-status-btn').getAttribute('data-id');
+            updateParkingStatus(spotId);
+        }
+    });
+    
+    function updateParkingStatus(spotId) {
+        const spot = parkingSpots.find(s => s.spotId === spotId);
+        if (!spot) return;
+        
+        document.getElementById('statusSpotId').value = spotId;
+        document.getElementById('newStatus').value = spot.status;
+        
+        const modal = new bootstrap.Modal(document.getElementById('updateStatusModal'));
+        modal.show();
+    }
+    
+    // Update Status Form Submit
+    document.getElementById('updateStatusForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (isCitizen) return;
+        
+        const spotId = document.getElementById('statusSpotId').value;
+        const newStatus = document.getElementById('newStatus').value;
+        
+        const index = parkingSpots.findIndex(s => s.spotId === spotId);
+        if (index !== -1) {
+            parkingSpots[index].status = newStatus;
+            
+            updateParkingSpotsTable();
+            updateParkingVisualization();
+            alert(`Successfully updated status of ${spotId} to ${newStatus}`);
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('updateStatusModal'));
+            if (modal) modal.hide();
+        }
+    });
+    
+    // Delete Parking Spot
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-parking-btn')) {
+            if (isCitizen) return;
+            const spotId = e.target.closest('.delete-parking-btn').getAttribute('data-id');
+            deleteParkingSpot(spotId);
+        }
+    });
+    
+    function deleteParkingSpot(spotId) {
+        if (isCitizen) return;
+        
+        if (confirm(`Are you sure you want to delete parking spot ${spotId}? This action cannot be undone.`)) {
+            const index = parkingSpots.findIndex(s => s.spotId === spotId);
+            if (index !== -1) {
+                // Also remove any reservations for this spot
+                reservations = reservations.filter(r => r.spotId !== spotId);
+                
+                parkingSpots.splice(index, 1);
+                updateParkingSpotsTable();
+                updateReservationTable();
+                updateParkingVisualization();
+                alert(`Parking spot ${spotId} has been deleted.`);
+            }
+        }
+    }
+    
+    function updateParkingSpotsTable() {
+        const tbody = document.getElementById('parkingSpotsTableBody');
+        tbody.innerHTML = '';
+        
+        parkingSpots.forEach(spot => {
+            const badgeClass = spot.status === 'Available' ? 'bg-success' : 
+                              spot.status === 'Occupied' ? 'bg-danger' : 
+                              spot.status === 'Reserved' ? 'bg-warning' : 'bg-secondary';
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${spot.spotId}</td>
+                <td>${spot.road}</td>
+                <td>${spot.area}</td>
+                <td>${spot.city}</td>
+                <td><span class="badge ${badgeClass}">${spot.status}</span></td>
+                <td>${spot.capacity}</td>
+                <td>${spot.lotId}</td>
+                <td class="action-buttons parking-actions">
+                    <button class="btn btn-sm btn-info text-white me-1 edit-parking-btn" data-id="${spot.spotId}" data-bs-toggle="modal" data-bs-target="#editParkingSpotModal"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn btn-sm btn-warning text-white me-1 update-status-btn" data-id="${spot.spotId}"><i class="fas fa-sync"></i> Update Status</button>
+                    <button class="btn btn-sm btn-danger delete-parking-btn" data-id="${spot.spotId}"><i class="fas fa-trash-alt"></i> Delete</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        applyRolePermissions(); // Re-apply permissions after table update
+    }
+    
+    function updateParkingVisualization() {
+        const parkingGrid = document.getElementById('parkingGrid');
+        parkingGrid.innerHTML = '';
+        
+        parkingSpots.forEach(spot => {
+            const badgeClass = spot.status === 'Available' ? 'spot-available' : 
+                              spot.status === 'Occupied' ? 'spot-occupied' : 'spot-reserved';
+            
+            const badge = document.createElement('span');
+            badge.className = `badge rounded-pill ${badgeClass} p-3`;
+            badge.textContent = `${spot.spotId}: ${spot.status}`;
+            parkingGrid.appendChild(badge);
+        });
+    }
+    
+    // 5. INITIALIZATION
+    function initialize() {
+        applyRolePermissions();
+        updateReservationTable();
+        updateParkingSpotsTable();
+        console.log('Smart Parking System initialized');
+    }
+    
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', initialize);
 </script>
 
 </body>
