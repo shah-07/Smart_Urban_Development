@@ -6,7 +6,7 @@
     <title>Waste Management | Smart City Portal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <link rel="stylesheet" href="styles.css"> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <style>
         /* General Layout Styles (Consistency) */
         .sidebar {
@@ -28,8 +28,35 @@
         .main-content {
             padding: 30px;
         }
-        .status-collected { background-color: #d4edda; color: #155724; }
-        .status-pending { background-color: #fff3cd; color: #856404; }
+        /* Specific Styles */
+        .table-section {
+            margin-bottom: 40px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        #vehicleName, #vehicleName option {
+        color: #333 !important; 
+        background-color: #fff !important;
+    }
+        .hazard-low { background-color: #28a745; color: white; }
+        .hazard-medium { background-color: #ffc107; color: #212529; }
+        .hazard-high { background-color: #dc3545; color: white; }
+        .hazard-extreme { background-color: #212529; color: white; }
+        .capacity-full { background-color: #dc3545; color: white; }
+        .capacity-high { background-color: #fd7e14; color: white; }
+        .capacity-medium { background-color: #ffc107; color: #212529; }
+        .capacity-low { background-color: #28a745; color: white; }
     </style>
 </head>
 <body>
@@ -49,115 +76,146 @@
 
     <div class="main-content flex-grow-1">
         <header class="mb-5 border-bottom pb-3">
-            <h1>Waste Management & Recycling Tracking</h1>
-            <p class="lead text-muted">Monitor collection logs, optimize routes, and track recycling efficiency (Tables: **Collection**, **RecyclingPlants**, **Transportation**).</p>
+            <h1>Waste Management</h1>
+            <p class="lead text-muted">Monitor waste types, recycling plants, and transportation logistics.</p>
         </header>
 
         <section class="mb-5 p-4 border rounded shadow-sm bg-white">
-            <h2 class="h4 mb-3"><i class="fas fa-route me-2 text-success"></i> Collection Route Status & Optimization</h2>
-            <div id="wasteChartContainer" style="height: 250px;" class="d-flex justify-content-center align-items-center">
-                <p class="text-muted">  </p>
-            </div>
-            <p class="mt-3 text-center text-info">Visual summary based on **Collection** and **Transportation** data.</p>
+            <h2 class="h4 mb-3"><i class="fas fa-chart-pie me-2 text-success"></i> Waste Distribution by Type</h2>
+            <div style="height: 300px;"><canvas id="wasteChart"></canvas></div>
+            <p class="mt-3 text-center text-info">Data displayed here is based on records from the **WasteData** table.</p>
         </section>
-        
-        <hr>
+                <hr>
 
-        <section class="mb-5">
-            <h2 class="h4 mb-4"><i class="fas fa-truck-loading me-2 text-success"></i> Waste Collection Logs (Table: Collection)</h2>
-            
+        <section class="table-section">
+            <h2 class="h4 mb-4"><i class="fas fa-trash me-2 text-success"></i> Table 1 - Waste Types</h2>
             <div class="d-flex justify-content-between mb-3">
-                
                 <div class="input-group" style="width: 350px;">
-                    <input type="text" class="form-control" placeholder="Search by Route ID or Status" aria-label="Search Collection Data" id="searchCollectionData">
+                    <input type="text" class="form-control" placeholder="Search..." id="searchWasteTypes" onkeyup="filterTable('searchWasteTypes', 'wasteTypesBody')">
                     <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
                 </div>
-
-                <button class="btn btn-success" id="btnAddCollection" data-bs-toggle="modal" data-bs-target="#addCollectionModal">
-                    <i class="fas fa-plus me-1"></i> Add New Collection Log
+                <button class="btn btn-success" id="btnAddWasteType" data-bs-toggle="modal" data-bs-target="#addWasteTypeModal" onclick="prepareModal('wasteTypeForm', 'wasteTypeId', 'Add Waste Type')">
+                    <i class="fas fa-plus me-1"></i> Add New Waste Type
                 </button>
             </div>
-
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Log ID</th>
-                            <th>Route ID</th>
-                            <th>Truck ID</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Total Weight (kg)</th>
-                            <th>Status</th>
-                            <th id="actionsHeader">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="collectionTableBody">
-                        <tr>
-                            <td>WL001</td>
-                            <td>R101</td>
-                            <td>T15</td>
-                            <td>2025-11-28 06:00</td>
-                            <td>2025-11-28 09:30</td>
-                            <td>12,500</td>
-                            <td><span class="badge status-collected p-2">Completed</span></td>
-                            <td class="action-buttons">
-                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="WL001" data-bs-toggle="modal" data-bs-target="#addCollectionModal"><i class="fas fa-edit"></i> Edit</button>
-                                <button class="btn btn-sm btn-danger delete-btn" data-id="WL001"><i class="fas fa-trash-alt"></i> Delete</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>WL002</td>
-                            <td>R105</td>
-                            <td>T03</td>
-                            <td>2025-11-28 10:00</td>
-                            <td>-</td>
-                            <td>-</td>
-                            <td><span class="badge status-pending p-2">In Progress</span></td>
-                            <td class="action-buttons">
-                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="WL002" data-bs-toggle="modal" data-bs-target="#addCollectionModal"><i class="fas fa-edit"></i> Edit</button>
-                                <button class="btn btn-sm btn-danger delete-btn" data-id="WL002"><i class="fas fa-trash-alt"></i> Delete</button>
-                            </td>
-                        </tr>
-                        </tbody>
+                    <thead class="table-light"><tr><th>ID</th><th>Waste Type</th><th>Hazard Level</th><th id="actionsHeader1">Action Buttons</th></tr></thead>
+                    <tbody id="wasteTypesBody"></tbody>
                 </table>
             </div>
-            
+        </section>
+
+        <section class="table-section">
+            <h2 class="h4 mb-4"><i class="fas fa-recycle me-2 text-success"></i> Table 2 - Recycling Plants</h2>
+            <div class="d-flex justify-content-between mb-3">
+                <div class="input-group" style="width: 350px;">
+                    <input type="text" class="form-control" placeholder="Search..." id="searchPlants" onkeyup="filterTable('searchPlants', 'plantsBody')">
+                    <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
+                </div>
+                <button class="btn btn-success" id="btnAddPlant" data-bs-toggle="modal" data-bs-target="#addPlantModal" onclick="prepareModal('plantForm', 'plantId', 'Add Recycling Plant')">
+                    <i class="fas fa-plus me-1"></i> Add New Recycling Plant
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light"><tr><th>ID</th><th>Name</th><th>Location</th><th>Capacity</th><th>Waste Types</th><th id="actionsHeader2">Action Buttons</th></tr></thead>
+                    <tbody id="plantsBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="table-section">
+            <h2 class="h4 mb-4"><i class="fas fa-truck me-2 text-success"></i> Table 3 - Waste Transportation</h2>
+            <div class="d-flex justify-content-between mb-3">
+                <div class="input-group" style="width: 350px;">
+                    <input type="text" class="form-control" placeholder="Search..." id="searchTransport" onkeyup="filterTable('searchTransport', 'transportBody')">
+                    <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
+                </div>
+                <button class="btn btn-success" id="btnAddTransport" data-bs-toggle="modal" data-bs-target="#addTransportModal" onclick="prepareModal('transportForm', 'transportId', 'Add Transportation')">
+                    <i class="fas fa-plus me-1"></i> Add New Transportation
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light"><tr><th>ID</th><th>Vehicle Name</th><th>Capacity (kg)</th><th>Collected (kg)</th><th>Timestamp</th><th id="actionsHeader3">Action Buttons</th></tr></thead>
+                    <tbody id="transportBody"></tbody>
+                </table>
+            </div>
         </section>
     </div>
 </div>
 
-<div class="modal fade" id="addCollectionModal" tabindex="-1" aria-labelledby="addCollectionModalLabel" aria-hidden="true">
+<div class="modal fade" id="addWasteTypeModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="addWasteTypeModalLabel">Add Waste Type</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">
+<form id="wasteTypeForm"><input type="hidden" id="wasteTypeId"><div class="mb-3"><label>Waste Type *</label><input type="text" class="form-control" id="wasteTypeName" required></div><div class="mb-3"><label>Hazard Level *</label><select class="form-select" id="hazardLevel" required><option>Low</option><option>Medium</option><option>High</option><option>Extreme</option></select></div><button type="submit" class="btn btn-primary w-100">Save</button></form></div></div></div></div>
+
+<div class="modal fade" id="addPlantModal" tabindex="-1" aria-labelledby="addPlantModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addCollectionModalLabel">Add/Edit Collection Log</h5>
+                <h5 class="modal-title" id="addPlantModalLabel">Add Recycling Plant</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="collectionForm">
-                    <input type="hidden" id="logId">
+                <form id="plantForm">
+                    <input type="hidden" id="plantId">
+
                     <div class="mb-3">
-                        <label for="routeId" class="form-label">Route ID</label>
-                        <input type="text" class="form-control" id="routeId" required>
+                        <label for="plantName" class="form-label">Plant Name</label>
+                        <input type="text" class="form-control" id="plantName" required>
                     </div>
                     <div class="mb-3">
-                        <label for="truckId" class="form-label">Truck ID</label>
-                        <input type="text" class="form-control" id="truckId" required>
+                        <label for="plantLocation" class="form-label">Location</label>
+                        <input type="text" class="form-control" id="plantLocation" required>
                     </div>
                     <div class="mb-3">
-                        <label for="collectionStatus" class="form-label">Status</label>
-                        <select class="form-select" id="collectionStatus">
-                            <option value="Pending">Pending</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Completed">Completed</option>
+                        <label for="plantCapacity" class="form-label">Capacity (kg/day)</label>
+                        <input type="number" class="form-control" id="plantCapacity" required>
+                    </div>
+                    
+                   <div class="mb-3">
+    <label for="plantWasteTypes" class="form-label">Accepted Waste Type IDs</label>
+    <input type="text" class="form-control" id="plantWasteTypes" placeholder="e.g. 1, 2 (Check Waste Types table for IDs)">
+    <div class="form-text">Enter the IDs of waste types separated by commas (e.g. 1, 2).</div>
+</div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">Save Plant</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addTransportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addTransportModalLabel">Add Transportation</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transportForm">
+                    <input type="hidden" id="transportId"> <input type="hidden" id="originalVehicleId">
+    <input type="hidden" id="originalTimestamp">
+                    
+                    <div class="mb-3">
+                        <label>Vehicle *</label>
+                        <select class="form-select" id="vehicleName" required>
+                            <option value="">Loading vehicles...</option>
                         </select>
                     </div>
+                    
                     <div class="mb-3">
-                        <label for="totalWeight" class="form-label">Total Weight (kg)</label>
-                        <input type="number" class="form-control" id="totalWeight">
+                        <label>Collected Amount (kg) *</label>
+                        <input type="number" class="form-control" id="collectedAmount" required>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Save Log</button>
+                    
+                    <div class="mb-3">
+                        <label>Timestamp *</label>
+                        <input type="datetime-local" class="form-control" id="collectedTimestamp" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">Save</button>
                 </form>
             </div>
         </div>
@@ -166,72 +224,330 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const userRole = sessionStorage.getItem('userRole');
+    const API_BASE = 'api/waste';
+    const userRole = sessionStorage.getItem('userRole') || 'admin';
     const isCitizen = userRole === 'citizen';
+    let chartInstance = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        applyRolePermissions();
+        loadAllData();
+    });
+
+    // 1. DATA LOADING
+    function loadAllData() {
+        // Load the 3 tables
+        loadData('types.php', 'wasteTypesBody', renderWasteTypes);
+        loadData('plants.php', 'plantsBody', renderPlants);
+        loadData('transport.php', 'transportBody', renderTransport);
+        // Load the chart
+        loadChart();
+    }
+
+    // 1. ADD this new function anywhere in your script
+async function loadWasteTypesForDropdown() {
+    try {
+        // [CHECK THIS] If types.php is in an 'api' folder, change this to 'api/types.php'
+        const response = await fetch('types.php'); 
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const types = await response.json();
+        
+        // This element MUST exist now (from Step 1)
+        const select = document.getElementById('plantWasteTypes');
+        
+        if (!select) {
+            console.error("CRITICAL ERROR: element 'plantWasteTypes' not found in DOM.");
+            return;
+        }
+
+        select.innerHTML = ''; 
+        types.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type.id;       
+            option.textContent = type.type; 
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading waste types:', error);
+        // Alert the user if the file is missing
+        if (error.message.includes("404")) {
+            alert("Error: 'types.php' not found. Please ensure the file exists in the same directory.");
+        }
+    }
+}
+
+    async function loadData(endpoint, tbodyId, renderFn) {
+        try {
+            const res = await fetch(`${API_BASE}/${endpoint}`);
+            const data = await res.json();
+            if (data.error) { console.error(data.error); return; }
+            renderFn(data, tbodyId);
+            
+            // Re-apply role permissions (hide buttons) after rendering new data
+            if (isCitizen) {
+                document.querySelectorAll('.action-buttons').forEach(el => el.innerHTML = '<span class="text-muted small">View Only</span>');
+            }
+        } catch(e) { console.error(`Error loading ${endpoint}`, e); }
+    }
+
+    // Add this function to load vehicles for dropdown
+async function loadVehicles() {
+    try {
+        const res = await fetch(`${API_BASE}/transport.php?action=vehicles`);
+        const vehicles = await res.json();
+        
+        const select = document.getElementById('vehicleName');
+        select.innerHTML = '<option value="">Select Vehicle</option>';
+        
+        vehicles.forEach(v => {
+            const option = document.createElement('option');
+            option.value = v.id || v.name;
+            option.textContent = v.name || v.id;
+            select.appendChild(option);
+        });
+    } catch (e) {
+        console.error("Error loading vehicles:", e);
+    }
+}
+
+// Update loadAllData function
+function loadAllData() {
+    loadData('types.php', 'wasteTypesBody', renderWasteTypes);
+    loadData('plants.php', 'plantsBody', renderPlants);
+    loadData('transport.php', 'transportBody', renderTransport);
     
-    // 1. ROLE-BASED ACCESS CONTROL (CRUD HIDING)
+    loadVehicles(); 
+    loadWasteTypesForDropdown(); // <--- ADD THIS LINE HERE
+    loadChart();
+}
+
+// Update the transport form HTML in waste.html
+// Replace the vehicleName input with a select dropdown:
+
+    // 2. RENDER FUNCTIONS
+    function renderWasteTypes(data, tbodyId) {
+        const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = data.map(i => `
+            <tr>
+                <td><strong>${i.id || i.wasteTypeId}</strong></td>
+                <td>${i.type || i.wasteTypeName}</td>
+                <td><span class="status-badge hazard-${(i.hazard || 'low').toLowerCase()}">${i.hazard}</span></td>
+                <td class="action-buttons">${getBtns(i, 'editWasteType', 'deleteItem', 'types.php')}</td>
+            </tr>
+        `).join('');
+    }
+    
+    function renderPlants(data, tbodyId) {
+        const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = data.map(i => `
+            <tr>
+                <td><strong>${i.id || i.plantId}</strong></td>
+                <td>${i.name || i.plantName}</td>
+                <td>${i.location}</td>
+                <td><span class="status-badge capacity-medium">${i.capacity}</span></td>
+                <td>${i.acceptedTypes || i.wasteTypes}</td>
+                <td class="action-buttons">${getBtns(i, 'editPlant', 'deleteItem', 'plants.php')}</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderTransport(data, tbodyId) {
+        const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = data.map(i => `
+            <tr>
+                <td><strong>${i.id || i.vehicleId}</strong></td>
+                <td>${i.vehicleName}</td>
+                <td>${i.capacity}</td>
+                <td>${i.collected}</td>
+                <td>${i.timestamp}</td>
+                <td class="action-buttons">${getBtns(i, 'editTransport', 'deleteItem', 'transport.php')}</td>
+            </tr>
+        `).join('');
+    }
+
+   function getBtns(item, editFn, delFn, endpoint) {
+    const itemStr = JSON.stringify(item).replace(/"/g, '&quot;');
+    
+    if (endpoint === 'transport.php') {
+        return `
+            <button class="btn btn-sm btn-info text-white me-1" onclick="${editFn}(${itemStr})">
+                <i class="fas fa-edit me-1"></i> Edit
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="${delFn}('${endpoint}', '${item.vehicleId || item.id}', '${item.timestamp || ''}')">
+                <i class="fas fa-trash-alt me-1"></i> Delete
+            </button>
+        `;
+    } else {
+        return `
+            <button class="btn btn-sm btn-info text-white me-1" onclick="${editFn}(${itemStr})">
+                <i class="fas fa-edit me-1"></i> Edit
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="${delFn}('${endpoint}', ${item.id || item.wasteTypeId || item.plantId})">
+                <i class="fas fa-trash-alt me-1"></i> Delete
+            </button>
+        `;
+    }
+}
+
+    // 3. CHART LOADING
+    async function loadChart() {
+        try {
+            const res = await fetch(`${API_BASE}/stats.php`);
+            const data = await res.json();
+            
+            const ctx = document.getElementById('wasteChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: data.map(d => d.type),
+                    datasets: [{ 
+                        data: data.map(d => d.count), 
+                        backgroundColor: ['#28a745','#17a2b8','#ffc107','#dc3545','#6c757d','#007bff'] 
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        } catch(e) { console.error("Chart Error", e); }
+    }
+
+    // 4. FORM SUBMISSIONS (CREATE / UPDATE)
+    setupForm('wasteTypeForm', 'types.php', () => ({
+        id: document.getElementById('wasteTypeId').value,
+        type: document.getElementById('wasteTypeName').value,
+        hazard: document.getElementById('hazardLevel').value
+    }), 'addWasteTypeModal');
+
+    setupForm('plantForm', 'plants.php', () => ({
+    id: document.getElementById('plantId').value,
+    name: document.getElementById('plantName').value,
+    location: document.getElementById('plantLocation').value,
+    capacity: document.getElementById('plantCapacity').value,
+    
+    // [FIX] Simple text value. The backend will split "1, 2" by commas automatically.
+    acceptedTypes: document.getElementById('plantWasteTypes').value 
+}), 'addPlantModal');
+
+    // 2. UPDATE the setupForm call for transport
+setupForm('transportForm', 'transport.php', () => ({
+    id: document.getElementById('transportId').value, // Must be present for PUT
+    vehicleId: document.getElementById('vehicleName').value,
+    collected: document.getElementById('collectedAmount').value,
+    timestamp: document.getElementById('collectedTimestamp').value,
+    // Send original keys
+    originalVehicleId: document.getElementById('originalVehicleId').value,
+    originalTimestamp: document.getElementById('originalTimestamp').value
+}), 'addTransportModal');
+
+    function setupForm(formId, endpoint, getDataFn, modalId) {
+        document.getElementById(formId).addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = getDataFn();
+            const method = data.id ? 'PUT' : 'POST';
+            
+            await fetch(`${API_BASE}/${endpoint}`, {
+                method: method,
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            
+            bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+            loadAllData();
+        });
+    }
+
+    // 5. EDIT HANDLERS (Populate Modals)
+    window.editWasteType = (i) => {
+        document.getElementById('wasteTypeId').value = i.id || i.wasteTypeId;
+        document.getElementById('wasteTypeName').value = i.type || i.wasteTypeName;
+        document.getElementById('hazardLevel').value = i.hazard;
+        document.getElementById('addWasteTypeModalLabel').textContent = 'Edit Waste Type';
+        new bootstrap.Modal(document.getElementById('addWasteTypeModal')).show();
+    };
+
+    window.editPlant = (item) => {
+    document.getElementById('plantId').value = item.id;
+    document.getElementById('plantName').value = item.name;
+    document.getElementById('plantLocation').value = item.location;
+    document.getElementById('plantCapacity').value = item.capacity;
+
+    // [FIX] Just fill the text box with the IDs (e.g., "1, 2")
+    // Note: item.acceptedTypeIds comes from the database query we fixed earlier
+    document.getElementById('plantWasteTypes').value = item.acceptedTypeIds || '';
+
+    document.getElementById('addPlantModalLabel').textContent = 'Edit Plant';
+    new bootstrap.Modal(document.getElementById('addPlantModal')).show();
+};
+
+    // 1. UPDATE or ADD the editTransport function
+window.editTransport = (item) => {
+    // Fills the hidden ID field -> This tells the system "Use PUT, not POST"
+    document.getElementById('transportId').value = item.vehicleId; 
+    
+    // Store original keys for the WHERE clause
+    document.getElementById('originalVehicleId').value = item.vehicleId;
+    document.getElementById('originalTimestamp').value = item.timestamp;
+
+    // Fill visible fields
+    document.getElementById('vehicleName').value = item.vehicleId;
+    document.getElementById('collectedAmount').value = item.collected;
+    
+    // Format date for input
+    const ts = item.timestamp.replace(' ', 'T').substring(0, 16);
+    document.getElementById('collectedTimestamp').value = ts;
+
+    // Show Modal
+    document.getElementById('addTransportModalLabel').textContent = 'Edit Transportation';
+    new bootstrap.Modal(document.getElementById('addTransportModal')).show();
+};
+
+   window.deleteItem = async (endpoint, id, timestamp = '') => {
+    if(confirm('Are you sure you want to delete this record?')) {
+        let url = `${API_BASE}/${endpoint}?id=${id}`;
+        
+        // For transport, we need timestamp too
+        if (endpoint === 'transport.php' && timestamp) {
+            url += `&ts=${encodeURIComponent(timestamp)}`;
+        }
+        
+        await fetch(url, { method: 'DELETE' });
+        loadAllData();
+    }
+};
+
+    // 7. UI HELPERS
     function applyRolePermissions() {
         if (isCitizen) {
-            // Hide the Add Button
-            document.getElementById('btnAddCollection').style.display = 'none';
-            
-            // Hide the 'Actions' header column
-            document.getElementById('actionsHeader').style.display = 'none';
-
-            // Hide the Edit and Delete buttons in the table body
-            document.querySelectorAll('.action-buttons').forEach(cell => {
-                cell.style.display = 'none';
+            ['btnAddWasteType', 'btnAddPlant', 'btnAddTransport'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.style.display = 'none';
+            });
+            ['actionsHeader1', 'actionsHeader2', 'actionsHeader3'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.style.display = 'none';
             });
         }
     }
     
-    // 2. SEARCH FUNCTIONALITY (Client-side example)
-    document.getElementById('searchCollectionData').addEventListener('keyup', function() {
-        const searchText = this.value.toLowerCase();
-        const rows = document.getElementById('collectionTableBody').getElementsByTagName('tr');
-        
-        Array.from(rows).forEach(row => {
-            const rowText = row.textContent.toLowerCase();
-            row.style.display = rowText.includes(searchText) ? '' : 'none';
-        });
-    });
+    window.prepareModal = (formId, idField, title) => {
+        document.getElementById(formId).reset();
+        document.getElementById(idField).value = '';
+        // Reset specific modal title
+        if(formId === 'wasteTypeForm') document.getElementById('addWasteTypeModalLabel').textContent = title;
+        if(formId === 'plantForm') document.getElementById('addPlantModalLabel').textContent = title;
+        if(formId === 'transportForm') document.getElementById('addTransportModalLabel').textContent = title;
+    };
 
-    // 3. CRUD (ADMIN ONLY) - Placeholder Functions
-    document.getElementById('collectionForm').addEventListener('submit', function(event) {
-        event.preventDefault();
-        
-        if (isCitizen) return; 
-        
-        const logId = document.getElementById('logId').value;
-        const routeId = document.getElementById('routeId').value;
-        
-        if (logId) {
-            alert(`[ADMIN ACTION] Attempting to EDIT Collection Log ID ${logId} (Route: ${routeId}). Requires PHP/MySQL backend.`);
-            // **TODO: Implement AJAX PUT/POST request to PHP endpoint for UPDATE**
-        } else {
-            alert(`[ADMIN ACTION] Attempting to ADD new Collection Log (Route: ${routeId}). Requires PHP/MySQL backend.`);
-            // **TODO: Implement AJAX POST request to PHP endpoint for CREATE**
+    function filterTable(inputId, tbodyId) {
+        const filter = document.getElementById(inputId).value.toLowerCase();
+        const rows = document.getElementById(tbodyId).getElementsByTagName("tr");
+        for (let row of rows) {
+            row.style.display = row.textContent.toLowerCase().includes(filter) ? "" : "none";
         }
-        
-        const modalElement = document.getElementById('addCollectionModal');
-        const modal = bootstrap.Modal.getInstance(modalElement);
-        if (modal) modal.hide();
-    });
-
-    document.querySelectorAll('.delete-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            if (isCitizen) return; 
-            const id = this.getAttribute('data-id');
-            if (confirm(`[ADMIN ACTION] Are you sure you want to DELETE Collection Log ID ${id}?`)) {
-                alert(`Deleting Collection Log ID ${id}. Requires PHP/MySQL backend.`);
-                // **TODO: Implement AJAX DELETE request to PHP endpoint**
-            }
-        });
-    });
-    
-    // Initialize all components
-    applyRolePermissions();
+    }
 </script>
-
 </body>
 </html>
