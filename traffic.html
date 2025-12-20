@@ -9,26 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="styles.css"> 
     <style>
-        /* General Layout Styles (Copied from Dashboard for consistency) */
-        .sidebar {
-            height: 100vh;
-            background-color: #2c3e50;
-            padding-top: 20px;
-        }
-        .sidebar a {
-            color: #ecf0f1;
-            padding: 15px 20px;
-            text-decoration: none;
-            display: block;
-            border-bottom: 1px solid #34495e;
-        }
-        .sidebar a:hover, .sidebar .active {
-            background-color: #3498db;
-            color: white;
-        }
-        .main-content {
-            padding: 30px;
-        }
+        .sidebar { height: 100vh; background-color: #2c3e50; padding-top: 20px; }
+        .sidebar a { color: #ecf0f1; padding: 15px 20px; text-decoration: none; display: block; border-bottom: 1px solid #34495e; }
+        .sidebar a:hover, .sidebar .active { background-color: #3498db; color: white; }
+        .main-content { padding: 30px; }
     </style>
 </head>
 <body>
@@ -66,13 +50,12 @@
             <h2 class="h4 mb-4"><i class="fas fa-database me-2 text-primary"></i> Traffic Data Records</h2>
             
             <div class="d-flex justify-content-between mb-3">
-                
                 <div class="input-group" style="width: 300px;">
-                    <input type="text" class="form-control" placeholder="Search by Location or Status" aria-label="Search Traffic Data" id="searchTrafficData">
+                    <input type="text" class="form-control" placeholder="Search by Location..." aria-label="Search Traffic Data" id="searchTrafficData">
                     <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i></button>
                 </div>
 
-                <button class="btn btn-success" id="btnAddRecord" data-bs-toggle="modal" data-bs-target="#addEditModal">
+                <button class="btn btn-success" id="btnAddRecord" data-bs-toggle="modal" data-bs-target="#addEditModal" onclick="prepareAddModal()">
                     <i class="fas fa-plus me-1"></i> Add New Record
                 </button>
             </div>
@@ -81,53 +64,20 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>ID</th>
+                            <th>Record ID</th>
+                            <th>Sensor ID</th>
                             <th>Location</th>
                             <th>Timestamp</th>
                             <th>Vehicle Count</th>
-                            <th>Congestion Level</th>
-                            <th>Accident Reported</th>
+                            <th>Congestion</th>
+                            <th>Number of Accidents</th>
                             <th id="actionsHeader">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="trafficDataTableBody">
-                        <tr>
-                            <td>101</td>
-                            <td>Main St & 5th Ave</td>
-                            <td>2025-11-28 08:15:00</td>
-                            <td>150</td>
-                            <td>High</td>
-                            <td>No</td>
-                            <td class="action-buttons">
-                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="101" data-bs-toggle="modal" data-bs-target="#addEditModal"><i class="fas fa-edit"></i> Edit</button>
-                                <button class="btn btn-sm btn-danger delete-btn" data-id="101"><i class="fas fa-trash-alt"></i> Delete</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>102</td>
-                            <td>Highway 40 North</td>
-                            <td>2025-11-28 08:20:00</td>
-                            <td>30</td>
-                            <td>Low</td>
-                            <td>Yes</td>
-                            <td class="action-buttons">
-                                <button class="btn btn-sm btn-info text-white me-1 edit-btn" data-id="102" data-bs-toggle="modal" data-bs-target="#addEditModal"><i class="fas fa-edit"></i> Edit</button>
-                                <button class="btn btn-sm btn-danger delete-btn" data-id="102"><i class="fas fa-trash-alt"></i> Delete</button>
-                            </td>
-                        </tr>
                         </tbody>
                 </table>
             </div>
-            
-            <nav aria-label="Page navigation">
-                <ul class="pagination justify-content-center">
-                    <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
-                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                    <li class="page-item"><a class="page-link" href="#">2</a></li>
-                    <li class="page-item"><a class="page-link" href="#">Next</a></li>
-                </ul>
-            </nav>
-
         </section>
     </div>
 </div>
@@ -142,6 +92,14 @@
             <div class="modal-body">
                 <form id="trafficForm">
                     <input type="hidden" id="recordId">
+                    
+                    <div class="mb-3">
+                        <label for="sensorID" class="form-label">Sensor Source</label>
+                        <select id="sensorID" class="form-select" required>
+                            <option value="">Loading Sensors...</option>
+                        </select>
+                    </div>
+
                     <div class="mb-3">
                         <label for="location" class="form-label">Location</label>
                         <input type="text" class="form-control" id="location" required>
@@ -163,9 +121,9 @@
                             <option value="Severe">Severe</option>
                         </select>
                     </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="accidentReported">
-                        <label class="form-check-label" for="accidentReported">Accident Reported?</label>
+                    <div class="mb-3">
+                        <label for="numAccidents" class="form-label">Number of Accidents</label>
+                        <input type="number" class="form-control" id="numAccidents" min="0" value="0" required>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Save Record</button>
                 </form>
@@ -176,108 +134,194 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    const API_PATH = 'api/traffic';
     const userRole = sessionStorage.getItem('userRole');
     const isCitizen = userRole === 'citizen';
+    let chartInstance = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        applyRolePermissions();
+        loadSensors();
+        loadTrafficData();
+        loadChart();
+    });
     
-    // 1. ROLE-BASED ACCESS CONTROL (CRUD HIDING)
+    // 1. ROLE-BASED ACCESS CONTROL
     function applyRolePermissions() {
         if (isCitizen) {
-            // Hide the Add Button
             document.getElementById('btnAddRecord').style.display = 'none';
-            
-            // Hide the 'Actions' header column
             document.getElementById('actionsHeader').style.display = 'none';
-
-            // Hide the Edit and Delete buttons in the table body
-            document.querySelectorAll('.action-buttons').forEach(cell => {
-                cell.style.display = 'none';
-            });
-            
-            // Adjust modal title for citizens if somehow triggered (should not happen)
             document.getElementById('addEditModalLabel').textContent = 'Traffic Record Details (View Only)';
-            
-            // Citizen view: The main table shows the data, but no way to manipulate it.
         }
     }
+
+    // 2. LOAD SENSORS (For Dropdown)
+    async function loadSensors() {
+        try {
+            const res = await fetch(`${API_PATH}/sensors.php`);
+            const data = await res.json();
+            const select = document.getElementById('sensorID');
+            if (data.length > 0) {
+                select.innerHTML = data.map(s => 
+                    `<option value="${s.sensorID}">ID ${s.sensorID} - ${s.location || 'Unknown'}</option>`
+                ).join('');
+            } else {
+                select.innerHTML = '<option value="">No Sensors Found</option>';
+            }
+        } catch (e) { console.error("Error loading sensors", e); }
+    }
     
-    // 2. SEARCH FUNCTIONALITY (Client-side example)
-    document.getElementById('searchTrafficData').addEventListener('keyup', function() {
-        const searchText = this.value.toLowerCase();
-        const rows = document.getElementById('trafficDataTableBody').getElementsByTagName('tr');
-        
-        Array.from(rows).forEach(row => {
-            const rowText = row.textContent.toLowerCase();
-            row.style.display = rowText.includes(searchText) ? '' : 'none';
-        });
-    });
+    // 3. LOAD DATA
+    async function loadTrafficData() {
+        try {
+            const res = await fetch(`${API_PATH}/records.php`);
+            const data = await res.json();
+            const tbody = document.getElementById('trafficDataTableBody');
+            
+            if (data.error) { console.error(data.error); return; }
 
-    // 3. CRUD (ADMIN ONLY) - Placeholder Functions
-    // These functions need to be implemented with AJAX calls to your PHP backend!
+            tbody.innerHTML = data.map(r => {
+                // Determine highlight class
+                const rowClass = r.numberOfRoadAccidents > 0 ? 'table-danger' : ''; 
+                
+                let btns = '';
+                if (!isCitizen) {
+                    btns = `
+                        <button class="btn btn-sm btn-info text-white me-1 edit-btn" onclick='openEditModal(${JSON.stringify(r)})'><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn btn-sm btn-danger delete-btn" onclick="deleteRecord(${r.recordID})"><i class="fas fa-trash-alt"></i> Delete</button>
+                    `;
+                }
 
-    document.getElementById('trafficForm').addEventListener('submit', function(event) {
+                return `
+                    <tr class="${rowClass}">
+                        <td>${r.recordID}</td>
+                        <td>${r.sensorID}</td>
+                        <td>${r.location}</td>
+                        <td>${r.timestamp}</td>
+                        <td>${r.trafficFlow}</td>
+                        <td><span class="badge bg-${getCongestionColor(r.congestionLevel)}">${r.congestionLevel}</span></td>
+                        <td>${r.numberOfRoadAccidents}</td>
+                        <td class="action-buttons">${btns}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            if(isCitizen) {
+                document.querySelectorAll('.action-buttons').forEach(el => el.style.display = 'none');
+            }
+        } catch (e) { console.error("Error loading records", e); }
+    }
+
+    // 4. CHART
+    async function loadChart() {
+        try {
+            const res = await fetch(`${API_PATH}/stats.php`);
+            const data = await res.json();
+            
+            // Format labels (HH:MM)
+            const labels = data.map(r => r.timestamp.slice(11, 16));
+            const values = data.map(r => r.trafficFlow);
+
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Vehicle Count',
+                        data: values,
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        } catch (e) { console.error("Chart Error", e); }
+    }
+
+    // 5. FORM HANDLING (Add/Edit)
+    document.getElementById('trafficForm').addEventListener('submit', async function(event) {
         event.preventDefault();
-        const recordId = document.getElementById('recordId').value;
-        const location = document.getElementById('location').value;
-        // ... get other form values
-
-        if (recordId) {
-            alert(`[ADMIN ACTION] Attempting to EDIT record ID ${recordId} (Location: ${location}). This requires PHP/MySQL backend.`);
-            // **TODO: Implement AJAX PUT/POST request to PHP endpoint for UPDATE**
-        } else {
-            alert(`[ADMIN ACTION] Attempting to ADD new record (Location: ${location}). This requires PHP/MySQL backend.`);
-            // **TODO: Implement AJAX POST request to PHP endpoint for CREATE**
-        }
         
-        // Close modal after alert (in real app, close after successful response)
+        const id = document.getElementById('recordId').value;
+        const body = {
+            recordID: id,
+            sensorID: document.getElementById('sensorID').value,
+            location: document.getElementById('location').value,
+            timestamp: document.getElementById('timestamp').value,
+            trafficFlow: document.getElementById('vehicleCount').value,
+            congestionLevel: document.getElementById('congestion').value,
+            numberOfRoadAccidents: document.getElementById('numAccidents').value
+        };
+
+        const method = id ? 'PUT' : 'POST';
+        
+        await fetch(`${API_PATH}/records.php`, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        
         const modalElement = document.getElementById('addEditModal');
         const modal = bootstrap.Modal.getInstance(modalElement);
         if (modal) modal.hide();
-        // Reload data from the backend to update the table
-        // loadTrafficData(); 
+        
+        loadTrafficData();
+        loadChart();
     });
 
-    document.querySelectorAll('.delete-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const id = this.getAttribute('data-id');
-            if (confirm(`[ADMIN ACTION] Are you sure you want to DELETE record ID ${id}?`)) {
-                alert(`Deleting record ID ${id}. This requires PHP/MySQL backend.`);
-                // **TODO: Implement AJAX DELETE request to PHP endpoint**
-            }
-        });
-    });
-    
-    // 4. CHART SIMULATION
-    function renderTrafficChart() {
-        const ctx = document.getElementById('trafficChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['7:00 AM', '7:30 AM', '8:00 AM', '8:30 AM', '9:00 AM', '9:30 AM', '10:00 AM'],
-                datasets: [{
-                    label: 'Vehicle Count (Main Street)',
-                    data: [50, 80, 150, 120, 90, 60, 40],
-                    borderColor: 'rgba(52, 152, 219, 1)',
-                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                    fill: true,
-                    tension: 0.3
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
+    // 6. DELETE ACTION
+    async function deleteRecord(id) {
+        if (confirm(`Are you sure you want to DELETE record ID ${id}?`)) {
+            await fetch(`${API_PATH}/records.php?id=${id}`, { method: 'DELETE' });
+            loadTrafficData();
+            loadChart();
+        }
     }
 
-    // Initialize all components
-    applyRolePermissions();
-    renderTrafficChart();
-</script>
+    // 7. HELPER FUNCTIONS
+    function prepareAddModal() {
+        document.getElementById('trafficForm').reset();
+        document.getElementById('recordId').value = '';
+        document.getElementById('addEditModalLabel').textContent = 'Add Traffic Record';
+    }
 
+    function openEditModal(r) {
+        document.getElementById('addEditModalLabel').textContent = 'Edit Traffic Record';
+        document.getElementById('recordId').value = r.recordID;
+        document.getElementById('sensorID').value = r.sensorID;
+        document.getElementById('location').value = r.location;
+        document.getElementById('timestamp').value = r.timestamp.replace(" ", "T").slice(0, 16);
+        document.getElementById('vehicleCount').value = r.trafficFlow;
+        document.getElementById('congestion').value = r.congestionLevel;
+        document.getElementById('numAccidents').value = r.numberOfRoadAccidents;
+        
+        new bootstrap.Modal(document.getElementById('addEditModal')).show();
+    }
+
+    function getCongestionColor(level) {
+        switch(level) {
+            case 'Low': return 'success';
+            case 'Medium': return 'warning';
+            case 'High': return 'danger';
+            case 'Severe': return 'dark';
+            default: return 'secondary';
+        }
+    }
+
+    // Search
+    document.getElementById('searchTrafficData').addEventListener('keyup', function() {
+        const searchText = this.value.toLowerCase();
+        const rows = document.getElementById('trafficDataTableBody').getElementsByTagName('tr');
+        Array.from(rows).forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(searchText) ? '' : 'none';
+        });
+    });
+
+</script>
 </body>
 </html>

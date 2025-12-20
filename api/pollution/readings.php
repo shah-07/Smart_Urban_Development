@@ -1,18 +1,24 @@
 <?php
 require_once '../../config.php';
 
-// GET all pollution readings with sensor location
+// GET all pollution readings
 if ($_SERVER['REQUEST_METHOD'] == 'GET') {
     try {
         $query = "
             SELECT 
                 pd.sensorID,
                 pd.timestamp,
-                pd.airQuality,
-                pd.noiseLevel,
-                pd.pm25Level,
-                pd.noXLevel,
-                pd.co2Level,
+                
+                -- CRITICAL FIX: Cast AQI to CHAR (String) so .includes() works in frontend
+                CAST(pd.airQuality AS CHAR) AS airQuality,
+                
+                -- Ensure other decimal values are also sent as strings
+                CAST(pd.noiseLevel AS CHAR) AS noiseLevel,
+                CAST(pd.pm25Level AS CHAR) AS pm25Level,
+                CAST(pd.co2Level AS CHAR) AS co2Level,
+                CAST(pd.noXLevel AS CHAR) AS noXLevel,
+                
+                -- Location data
                 iot.road,
                 iot.area,
                 iot.latitude,
