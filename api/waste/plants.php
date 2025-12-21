@@ -1,111 +1,196 @@
 <?php
+// api/waste/plants.php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 header("Content-Type: application/json");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 require 'db.php';
 
-$method = $_SERVER['REQUEST_METHOD'];
-$input = json_decode(file_get_contents('php://input'), true);
-
-function updatePlantTypes($pdo, $plantId, $typesInput) {
-    // Clear existing associations
-    $stmt = $pdo->prepare("DELETE FROM WasteType_Accepts_Recycling_Plant_T WHERE plantID = ?");
-    $stmt->execute([$plantId]);
-
-    // If typesInput is empty string or null, just return
-    if (empty($typesInput)) {
-        return;
-    }
+try {
+    $method = $_SERVER['REQUEST_METHOD'];
     
-    // Handle both string (comma-separated) and array inputs
-    if (is_string($typesInput)) {
-        $typeIds = array_filter(array_map('trim', explode(',', $typesInput)));
-    } elseif (is_array($typesInput)) {
-        $typeIds = $typesInput;
-    } else {
-        return;
-    }
+    // Get input data
+    $input = json_decode(file_get_contents('php://input'), true);
     
-    if (empty($typeIds)) {
-        return;
-    }
+    // Log for debugging (remove in production)
+    error_log("Method: $method, Input: " . json_encode($input));
 
-    $insertStmt = $pdo->prepare("INSERT INTO WasteType_Accepts_Recycling_Plant_T (wasteTypeID, plantID) VALUES (?, ?)");
-    foreach ($typeIds as $typeId) {
-        if (is_numeric($typeId)) {
-            $insertStmt->execute([$typeId, $plantId]);
+    if ($method === 'GET') {
+        // Get all plants with their accepted waste types
+        $sql = "SELECT 
+                    rp.plantID as id, 
+                    rp.name, 
+                    rp.location, 
+                    rp.capacity,
+                    COALESCE(GROUP_CONCAT(wt.wasteTypeID), '') as acceptedTypeIds,
+                    COALESCE(GROUP_CONCAT(wt.name SEPARATOR ', '), 'None') as acceptedTypes
+                FROM Recycling_Plant_T rp
+                LEFT JOIN WasteType_Accepts_Recycling_Plant_T map ON rp.plantID = map.plantID
+                LEFT JOIN WasteType_T wt ON map.wasteTypeID = wt.wasteTypeID
+                GROUP BY rp.plantID, rp.name, rp.location, rp.capacity
+                ORDER BY rp.plantID";
+        
+        $stmt = $pdo->query($sql);
+        $result = $stmt->fetchAll();
+        
+        // Ensure all fields exist
+        foreach ($result as &$row) {
+            $row['acceptedTypes'] = $row['acceptedTypes'] ?? 'None';
+            $row['acceptedTypeIds'] = $row['acceptedTypeIds'] ?? '';
+        }
+        
+        echo json_encode($result);
+    } 
+    elseif ($method === 'POST') {
+        // Validate required fields
+        if (empty($input['name']) || empty($input['location']) || empty($input['capacity'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing required fields: name, location, capacity']);
+            exit();
+        }
+        
+        // Start transaction
+        $pdo->beginTransaction();
+        
+        try {
+            // Add new plant
+            $stmt = $pdo->prepare("INSERT INTO Recycling_Plant_T (name, location, capacity) VALUES (?, ?, ?)");
+            $stmt->execute([
+                trim($input['name']), 
+                trim($input['location']), 
+                intval($input['capacity'])
+            ]);
+            
+            $newPlantId = $pdo->lastInsertId();
+            
+            // Add accepted waste types to junction table
+            if (!empty($input['wasteTypeIds']) && is_array($input['wasteTypeIds'])) {
+                $insertStmt = $pdo->prepare("INSERT INTO WasteType_Accepts_Recycling_Plant_T (plantID, wasteTypeID) VALUES (?, ?)");
+                foreach ($input['wasteTypeIds'] as $wasteTypeId) {
+                    $cleanId = intval(trim($wasteTypeId));
+                    if ($cleanId > 0) {
+                        $insertStmt->execute([$newPlantId, $cleanId]);
+                    }
+                }
+            }
+            
+            $pdo->commit();
+            
+            echo json_encode([
+                'message' => 'Plant added successfully', 
+                'id' => $newPlantId,
+                'wasteTypeIds' => $input['wasteTypeIds'] ?? []
+            ]);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
         }
     }
-}
-
-try {
-    if ($method === 'GET') {
-    $sql = "SELECT 
-                p.plantID as id, 
-                p.name, 
-                p.location, 
-                p.capacity, 
-                -- This combines names like 'Plastic, Metal' for the table
-                COALESCE(GROUP_CONCAT(wt.name SEPARATOR ', '), 'None') as acceptedTypes,
-                -- This combines IDs like '1,2' for the Edit Logic
-                COALESCE(GROUP_CONCAT(wt.wasteTypeID SEPARATOR ','), '') as acceptedTypeIds
-            FROM Recycling_Plant_T p
-            LEFT JOIN WasteType_Accepts_Recycling_Plant_T wta ON p.plantID = wta.plantID
-            LEFT JOIN WasteType_T wt ON wta.wasteTypeID = wt.wasteTypeID
-            GROUP BY p.plantID, p.name, p.location, p.capacity";
-            
-    $stmt = $pdo->query($sql);
-    echo json_encode($stmt->fetchAll());
-}
-    elseif ($method === 'POST') {
-    // 1. Validation
-    if (empty($input['name']) || empty($input['location'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Name and Location are required']);
-        exit;
-    }
-
-    // 2. Sensor Handling (Required by Database Constraint)
-    $sensorID = $pdo->query("SELECT sensorID FROM IOT_SENSOR_T LIMIT 1")->fetchColumn();
-    if (!$sensorID) {
-        // Create a dummy sensor if none exists so the Plant insert doesn't fail
-        $pdo->query("INSERT INTO IOT_SENSOR_T (type, status, location) VALUES ('PlantSensor', 'Active', 'Plant')");
-        $sensorID = $pdo->lastInsertId();
-    }
-
-    // 3. Insert Plant
-    $stmt = $pdo->prepare("INSERT INTO Recycling_Plant_T (name, location, capacity, sensorID) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$input['name'], $input['location'], $input['capacity'], $sensorID]);
-    $newPlantId = $pdo->lastInsertId();
-
-    // 4. Update Waste Types
-    if (!empty($input['acceptedTypes'])) {
-        updatePlantTypes($pdo, $newPlantId, $input['acceptedTypes']);
-    }
-
-    echo json_encode(['message' => 'Plant added successfully']);
-}
     elseif ($method === 'PUT') {
-    $input = json_decode(file_get_contents('php://input'), true);
-
-    // 1. Update Plant Details
-    $stmt = $pdo->prepare("UPDATE Recycling_Plant_T SET name=?, location=?, capacity=? WHERE plantID=?");
-    $stmt->execute([$input['name'], $input['location'], $input['capacity'], $input['id']]);
-    
-    // 2. Update Waste Types
-    if (isset($input['acceptedTypes'])) {
-        updatePlantTypes($pdo, $input['id'], $input['acceptedTypes']);
+        // Validate required fields
+        if (empty($input['id'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Plant ID is required for update']);
+            exit();
+        }
+        
+        $plantId = intval($input['id']);
+        
+        // Start transaction
+        $pdo->beginTransaction();
+        
+        try {
+            // Update plant basic info
+            $stmt = $pdo->prepare("UPDATE Recycling_Plant_T SET name = ?, location = ?, capacity = ? WHERE plantID = ?");
+            $stmt->execute([
+                trim($input['name']), 
+                trim($input['location']), 
+                intval($input['capacity']), 
+                $plantId
+            ]);
+            
+            // Update accepted waste types - remove old ones first
+            $pdo->prepare("DELETE FROM WasteType_Accepts_Recycling_Plant_T WHERE plantID = ?")->execute([$plantId]);
+            
+            // Add new selections
+            if (!empty($input['wasteTypeIds']) && is_array($input['wasteTypeIds'])) {
+                $insertStmt = $pdo->prepare("INSERT INTO WasteType_Accepts_Recycling_Plant_T (plantID, wasteTypeID) VALUES (?, ?)");
+                foreach ($input['wasteTypeIds'] as $wasteTypeId) {
+                    $cleanId = intval(trim($wasteTypeId));
+                    if ($cleanId > 0) {
+                        $insertStmt->execute([$plantId, $cleanId]);
+                    }
+                }
+            }
+            
+            $pdo->commit();
+            
+            echo json_encode([
+                'message' => 'Plant updated successfully',
+                'wasteTypeIds' => $input['wasteTypeIds'] ?? []
+            ]);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
-    
-    echo json_encode(['message' => 'Plant updated successfully']);
-}
     elseif ($method === 'DELETE') {
-        $id = $_GET['id'];
-        $pdo->prepare("DELETE FROM WasteType_Accepts_Recycling_Plant_T WHERE plantID=?")->execute([$id]);
-        $pdo->prepare("DELETE FROM Waste_Collection_T WHERE plantID=?")->execute([$id]); // Clear history to allow delete
-        $pdo->prepare("DELETE FROM Recycling_Plant_T WHERE plantID=?")->execute([$id]);
-        echo json_encode(['message' => 'Plant deleted']);
+        $id = $_GET['id'] ?? null;
+        
+        if (!$id || !is_numeric($id)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Valid ID parameter is required']);
+            exit();
+        }
+        
+        $plantId = intval($id);
+        
+        // Start transaction
+        $pdo->beginTransaction();
+        
+        try {
+            // Delete from junction table first
+            $pdo->prepare("DELETE FROM WasteType_Accepts_Recycling_Plant_T WHERE plantID = ?")->execute([$plantId]);
+            
+            // Then delete plant
+            $stmt = $pdo->prepare("DELETE FROM Recycling_Plant_T WHERE plantID = ?");
+            $stmt->execute([$plantId]);
+            
+            $pdo->commit();
+            
+            echo json_encode(['message' => 'Plant deleted successfully']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
+    else {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+    }
+    
 } catch (Exception $e) {
+    error_log("Plants API Error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode([
+        'error' => 'Server error occurred',
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
+    ]);
 }
 ?>

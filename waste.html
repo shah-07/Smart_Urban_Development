@@ -173,10 +173,14 @@
                         <input type="number" class="form-control" id="plantCapacity" required>
                     </div>
                     
-                   <div class="mb-3">
-    <label for="plantWasteTypes" class="form-label">Accepted Waste Type IDs</label>
-    <input type="text" class="form-control" id="plantWasteTypes" placeholder="e.g. 1, 2 (Check Waste Types table for IDs)">
-    <div class="form-text">Enter the IDs of waste types separated by commas (e.g. 1, 2).</div>
+                   <!-- In waste.html, inside the plant modal -->
+<div class="mb-3">
+    <label for="plantWasteTypes" class="form-label">Accepted Waste Types</label>
+    <div id="wasteTypesChecklist" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
+        <div class="form-text mb-2">Select one or more waste types:</div>
+        <!-- Checklist will be loaded by JavaScript -->
+        <div class="text-center text-muted py-3">Loading waste types...</div>
+    </div>
 </div>
                     
                     <button type="submit" class="btn btn-primary w-100">Save Plant</button>
@@ -199,11 +203,12 @@
     <input type="hidden" id="originalTimestamp">
                     
                     <div class="mb-3">
-                        <label>Vehicle *</label>
-                        <select class="form-select" id="vehicleName" required>
-                            <option value="">Loading vehicles...</option>
-                        </select>
-                    </div>
+    <label>Vehicle *</label>
+    <select class="form-select" id="vehicleName" required>
+        <option value="">Select Vehicle</option>
+        <!-- Options will be loaded by JavaScript -->
+    </select>
+</div>
                     
                     <div class="mb-3">
                         <label>Collected Amount (kg) *</label>
@@ -244,39 +249,81 @@
         loadChart();
     }
 
+
+// Load waste types for checklist
+async function loadWasteTypesForChecklist() {
+    try {
+        const response = await fetch('api/waste/types.php');
+        const wasteTypes = await response.json();
+        const container = document.getElementById('wasteTypesChecklist');
+        
+        if (!Array.isArray(wasteTypes) || wasteTypes.length === 0) {
+            container.innerHTML = '<div class="text-danger">No waste types found. Add waste types first.</div>';
+            return;
+        }
+        
+        container.innerHTML = '<div class="form-text mb-2">Select one or more waste types:</div>';
+        
+        wasteTypes.forEach(waste => {
+            container.innerHTML += `
+                <div class="form-check">
+                    <input class="form-check-input waste-type-checkbox" type="checkbox" 
+                           value="${waste.id}" id="wasteType${waste.id}">
+                    <label class="form-check-label" for="wasteType${waste.id}">
+                        ${waste.type} <span class="badge bg-secondary ms-2">${waste.hazard}</span>
+                    </label>
+                </div>
+            `;
+        });
+    } catch (error) {
+        console.error('Error loading waste types for checklist:', error);
+        document.getElementById('wasteTypesChecklist').innerHTML = 
+            '<div class="text-danger">Failed to load waste types</div>';
+    }
+}
+
+// Helper function to get selected waste type IDs
+function getSelectedWasteTypeIds() {
+    const checkboxes = document.querySelectorAll('.waste-type-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+// Helper function to set checkboxes based on selected IDs
+function setSelectedWasteTypes(selectedIds) {
+    // Convert selectedIds to array if it's a string
+    const idsArray = Array.isArray(selectedIds) ? selectedIds : 
+                     (typeof selectedIds === 'string' ? selectedIds.split(',').map(id => id.trim()) : []);
+    
+    // Uncheck all first
+    document.querySelectorAll('.waste-type-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+    
+    // Check the selected ones
+    idsArray.forEach(id => {
+        const checkbox = document.querySelector(`.waste-type-checkbox[value="${id}"]`);
+        if (checkbox) checkbox.checked = true;
+    });
+}
+
+
     // 1. ADD this new function anywhere in your script
 async function loadWasteTypesForDropdown() {
     try {
-        // [CHECK THIS] If types.php is in an 'api' folder, change this to 'api/types.php'
-        const response = await fetch('types.php'); 
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        // FIX: Update path to api/waste/types.php
+        const response = await fetch('api/waste/types.php'); 
+        if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
         
         const types = await response.json();
-        
-        // This element MUST exist now (from Step 1)
-        const select = document.getElementById('plantWasteTypes');
-        
-        if (!select) {
-            console.error("CRITICAL ERROR: element 'plantWasteTypes' not found in DOM.");
-            return;
+        const select = document.getElementById('wasteTypeSelect'); // Ensure this ID matches your HTML
+        if(select) {
+            select.innerHTML = '<option value="">Select Waste Type</option>';
+            types.forEach(type => {
+                select.innerHTML += `<option value="${type.id}">${type.type}</option>`;
+            });
         }
-
-        select.innerHTML = ''; 
-        types.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type.id;       
-            option.textContent = type.type; 
-            select.appendChild(option);
-        });
     } catch (error) {
         console.error('Error loading waste types:', error);
-        // Alert the user if the file is missing
-        if (error.message.includes("404")) {
-            alert("Error: 'types.php' not found. Please ensure the file exists in the same directory.");
-        }
     }
 }
 
@@ -297,20 +344,39 @@ async function loadWasteTypesForDropdown() {
     // Add this function to load vehicles for dropdown
 async function loadVehicles() {
     try {
-        const res = await fetch(`${API_BASE}/transport.php?action=vehicles`);
-        const vehicles = await res.json();
+        // FIX: Update path to api/waste/transport.php
+        const response = await fetch('api/waste/transport.php?action=vehicles');
         
-        const select = document.getElementById('vehicleName');
+        // Add check to ensure we got valid JSON
+        if (!response.ok) throw new Error('Failed to fetch vehicles');
+        
+        const vehicles = await response.json();
+        
+        const select = document.getElementById('vehicleSelect');
         select.innerHTML = '<option value="">Select Vehicle</option>';
         
+        // This check prevents the "forEach is not a function" crash
+        if (Array.isArray(vehicles)) {
+            vehicles.forEach(v => {
+                select.innerHTML += `<option value="${v.id}">${v.name}</option>`;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading vehicles:', error);
+    }
+}
+
+async function loadVehiclesForDropdown() {
+    try {
+        const response = await fetch('api/waste/transport.php?action=vehicles');
+        const vehicles = await response.json();
+        const select = document.getElementById('vehicleName');
+        select.innerHTML = '<option value="">Select Vehicle</option>';
         vehicles.forEach(v => {
-            const option = document.createElement('option');
-            option.value = v.id || v.name;
-            option.textContent = v.name || v.id;
-            select.appendChild(option);
+            select.innerHTML += `<option value="${v.id}">${v.name}</option>`;
         });
-    } catch (e) {
-        console.error("Error loading vehicles:", e);
+    } catch (error) {
+        console.error('Error loading vehicles:', error);
     }
 }
 
@@ -320,8 +386,12 @@ function loadAllData() {
     loadData('plants.php', 'plantsBody', renderPlants);
     loadData('transport.php', 'transportBody', renderTransport);
     
-    loadVehicles(); 
-    loadWasteTypesForDropdown(); // <--- ADD THIS LINE HERE
+    // Load vehicles for dropdown
+    loadVehiclesForDropdown();
+    
+    // Load waste types for plant modal checklist
+    loadWasteTypesForChecklist();
+    
     loadChart();
 }
 
@@ -341,19 +411,20 @@ function loadAllData() {
         `).join('');
     }
     
-    function renderPlants(data, tbodyId) {
-        const tbody = document.getElementById(tbodyId);
-        tbody.innerHTML = data.map(i => `
-            <tr>
-                <td><strong>${i.id || i.plantId}</strong></td>
-                <td>${i.name || i.plantName}</td>
-                <td>${i.location}</td>
-                <td><span class="status-badge capacity-medium">${i.capacity}</span></td>
-                <td>${i.acceptedTypes || i.wasteTypes}</td>
-                <td class="action-buttons">${getBtns(i, 'editPlant', 'deleteItem', 'plants.php')}</td>
-            </tr>
-        `).join('');
-    }
+    // In waste.html, replace the renderPlants function:
+function renderPlants(data, tbodyId) {
+    const tbody = document.getElementById(tbodyId);
+    tbody.innerHTML = data.map(i => `
+        <tr>
+            <td><strong>${i.id}</strong></td>
+            <td>${i.name}</td>
+            <td>${i.location}</td>
+            <td><span class="status-badge capacity-medium">${i.capacity}</span></td>
+            <td>${i.acceptedTypes || 'None'}</td>
+            <td class="action-buttons">${getBtns(i, 'editPlant', 'deleteItem', 'plants.php')}</td>
+        </tr>
+    `).join('');
+}
 
     function renderTransport(data, tbodyId) {
         const tbody = document.getElementById(tbodyId);
@@ -423,15 +494,15 @@ function loadAllData() {
         hazard: document.getElementById('hazardLevel').value
     }), 'addWasteTypeModal');
 
-    setupForm('plantForm', 'plants.php', () => ({
+   setupForm('plantForm', 'plants.php', () => ({
     id: document.getElementById('plantId').value,
     name: document.getElementById('plantName').value,
     location: document.getElementById('plantLocation').value,
     capacity: document.getElementById('plantCapacity').value,
-    
-    // [FIX] Simple text value. The backend will split "1, 2" by commas automatically.
-    acceptedTypes: document.getElementById('plantWasteTypes').value 
+    // Send array of selected waste type IDs
+    wasteTypeIds: getSelectedWasteTypeIds()
 }), 'addPlantModal');
+
 
     // 2. UPDATE the setupForm call for transport
 setupForm('transportForm', 'transport.php', () => ({
@@ -444,22 +515,43 @@ setupForm('transportForm', 'transport.php', () => ({
     originalTimestamp: document.getElementById('originalTimestamp').value
 }), 'addTransportModal');
 
-    function setupForm(formId, endpoint, getDataFn, modalId) {
-        document.getElementById(formId).addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const data = getDataFn();
-            const method = data.id ? 'PUT' : 'POST';
-            
-            await fetch(`${API_BASE}/${endpoint}`, {
+    // Update the setupForm function in waste.html
+function setupForm(formId, endpoint, getDataFn, modalId) {
+    document.getElementById(formId).addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = getDataFn();
+        const method = data.id ? 'PUT' : 'POST';
+        
+        console.log("Submitting to", endpoint, "with data:", data); // Debug
+        
+        try {
+            const response = await fetch(`${API_BASE}/${endpoint}`, {
                 method: method,
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
             
-            bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || result.message || 'Request failed');
+            }
+            
+            console.log("Success:", result); // Debug
+            
+            // Hide modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+            if (modal) modal.hide();
+            
+            // Reload data
             loadAllData();
-        });
-    }
+            
+        } catch(error) {
+            console.error("Form submission error:", error);
+            alert("Error: " + error.message + "\nCheck console for details.");
+        }
+    });
+}
 
     // 5. EDIT HANDLERS (Populate Modals)
     window.editWasteType = (i) => {
@@ -470,18 +562,22 @@ setupForm('transportForm', 'transport.php', () => ({
         new bootstrap.Modal(document.getElementById('addWasteTypeModal')).show();
     };
 
-    window.editPlant = (item) => {
+   window.editPlant = (item) => {
     document.getElementById('plantId').value = item.id;
     document.getElementById('plantName').value = item.name;
     document.getElementById('plantLocation').value = item.location;
     document.getElementById('plantCapacity').value = item.capacity;
-
-    // [FIX] Just fill the text box with the IDs (e.g., "1, 2")
-    // Note: item.acceptedTypeIds comes from the database query we fixed earlier
-    document.getElementById('plantWasteTypes').value = item.acceptedTypeIds || '';
-
+    
+    // Set selected waste types from acceptedTypeIds
+    // acceptedTypeIds is a string like "1,2,3" from the PHP query
+    setSelectedWasteTypes(item.acceptedTypeIds || '');
+    
     document.getElementById('addPlantModalLabel').textContent = 'Edit Plant';
-    new bootstrap.Modal(document.getElementById('addPlantModal')).show();
+    
+    // Ensure waste types are loaded before showing modal
+    setTimeout(() => {
+        new bootstrap.Modal(document.getElementById('addPlantModal')).show();
+    }, 100);
 };
 
     // 1. UPDATE or ADD the editTransport function
@@ -533,13 +629,21 @@ window.editTransport = (item) => {
     }
     
     window.prepareModal = (formId, idField, title) => {
-        document.getElementById(formId).reset();
-        document.getElementById(idField).value = '';
-        // Reset specific modal title
-        if(formId === 'wasteTypeForm') document.getElementById('addWasteTypeModalLabel').textContent = title;
-        if(formId === 'plantForm') document.getElementById('addPlantModalLabel').textContent = title;
-        if(formId === 'transportForm') document.getElementById('addTransportModalLabel').textContent = title;
-    };
+    document.getElementById(formId).reset();
+    document.getElementById(idField).value = '';
+    
+    // Clear waste type checkboxes if it's the plant form
+    if (formId === 'plantForm') {
+        document.querySelectorAll('.waste-type-checkbox').forEach(cb => {
+            cb.checked = false;
+        });
+    }
+    
+    // Reset modal title
+    if(formId === 'wasteTypeForm') document.getElementById('addWasteTypeModalLabel').textContent = title;
+    if(formId === 'plantForm') document.getElementById('addPlantModalLabel').textContent = title;
+    if(formId === 'transportForm') document.getElementById('addTransportModalLabel').textContent = title;
+};
 
     function filterTable(inputId, tbodyId) {
         const filter = document.getElementById(inputId).value.toLowerCase();
