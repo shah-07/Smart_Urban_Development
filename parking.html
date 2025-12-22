@@ -461,49 +461,85 @@
     }
 
     // --- ADD/EDIT ACTIONS ---
-    // Reservations
-        // Reservations - Add form
+    // Reservations - Add form with validation
     document.getElementById('addResForm').onsubmit = async (e) => {
-        e.preventDefault();
-        
-        if (isCitizen) {
-            alert('Citizens cannot add reservations.');
-            return;
-        }
-        
-        await apiCall(`${API_PATH}/reservations.php`, 'POST', {
-            citizenID: document.getElementById('addResCitizen').value,
-            spotID: document.getElementById('addResSpot').value,
-            startTime: document.getElementById('addResStart').value,
-            endTime: document.getElementById('addResEnd').value,
-            amount: document.getElementById('addResAmount').value,
-            paymentGateway: document.getElementById('addResGateway').value
-        });
-        bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
-        loadReservations();
-    };
+    e.preventDefault();
+    
+    if (isCitizen) {
+        alert('Citizens cannot add reservations.');
+        return;
+    }
+    
+    // Get form values
+    const spotID = document.getElementById('addResSpot').value;
+    const startTime = document.getElementById('addResStart').value;
+    const endTime = document.getElementById('addResEnd').value;
+    
+    // Validate start time is before end time
+    if (new Date(startTime) >= new Date(endTime)) {
+        alert('Error: Start time must be before end time.');
+        return;
+    }
+    
+    // Check for reservation conflicts
+    const hasConflict = await checkReservationConflict(spotID, startTime, endTime);
+    if (hasConflict) {
+        alert('Error: This parking spot is already reserved during the selected time period.');
+        return;
+    }
+    
+    await apiCall(`${API_PATH}/reservations.php`, 'POST', {
+        citizenID: document.getElementById('addResCitizen').value,
+        spotID: spotID,
+        startTime: startTime,
+        endTime: endTime,
+        amount: document.getElementById('addResAmount').value,
+        paymentGateway: document.getElementById('addResGateway').value
+    });
+    bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
+    loadReservations();
+};
 
-    // Reservations - Edit form
+    // Reservations - Edit form with validation
     document.getElementById('editResForm').onsubmit = async (e) => {
-        e.preventDefault();
-        
-        if (isCitizen) {
-            alert('Citizens cannot edit reservations.');
-            return;
-        }
-        
-        await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
-            reservationID: document.getElementById('editResID').value,
-            citizenID: document.getElementById('editResCitizen').value,
-            spotID: document.getElementById('editResSpot').value,
-            startTime: document.getElementById('editResStart').value,
-            endTime: document.getElementById('editResEnd').value,
-            amount: document.getElementById('editResAmount').value,
-            paymentGateway: document.getElementById('editResGateway').value
-        });
-        bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
-        loadReservations();
-    };
+    e.preventDefault();
+    
+    if (isCitizen) {
+        alert('Citizens cannot edit reservations.');
+        return;
+    }
+    
+    // Get form values
+    const reservationID = document.getElementById('editResID').value;
+    const spotID = document.getElementById('editResSpot').value;
+    const startTime = document.getElementById('editResStart').value;
+    const endTime = document.getElementById('editResEnd').value;
+    
+    // Validate start time is before end time
+    if (new Date(startTime) >= new Date(endTime)) {
+        alert('Error: Start time must be before end time.');
+        return;
+    }
+    
+    // Check for reservation conflicts (excluding current reservation)
+    const hasConflict = await checkReservationConflict(spotID, startTime, endTime, reservationID);
+    if (hasConflict) {
+        alert('Error: This parking spot is already reserved during the selected time period.');
+        return;
+    }
+    
+    await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
+        reservationID: reservationID,
+        citizenID: document.getElementById('editResCitizen').value,
+        spotID: spotID,
+        startTime: startTime,
+        endTime: endTime,
+        amount: document.getElementById('editResAmount').value,
+        paymentGateway: document.getElementById('editResGateway').value
+    });
+    bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
+    loadReservations();
+};
 
     // Spots - Add form
     document.getElementById('addSpotForm').onsubmit = async (e) => {
@@ -655,6 +691,44 @@
         const json = await res.json();
         if(json.error) alert(json.error);
     }
+
+    async function checkReservationConflict(spotID, startTime, endTime, excludeReservationID = null) {
+    try {
+        // Fetch all reservations for the specific spot
+        const res = await fetch(`${API_PATH}/reservations.php`);
+        const reservations = await res.json();
+        
+        const newStart = new Date(startTime);
+        const newEnd = new Date(endTime);
+        
+        // Check each existing reservation for the same spot
+        for (const reservation of reservations) {
+            // Skip the reservation being edited
+            if (excludeReservationID && reservation.reservationID == excludeReservationID) {
+                continue;
+            }
+            
+            // Only check reservations for the same spot
+            if (reservation.spotID == spotID) {
+                const existingStart = new Date(reservation.startTime);
+                const existingEnd = new Date(reservation.endTime);
+                
+                // Check for time overlap
+                if ((newStart >= existingStart && newStart < existingEnd) ||
+                    (newEnd > existingStart && newEnd <= existingEnd) ||
+                    (newStart <= existingStart && newEnd >= existingEnd)) {
+                    return true; // Conflict found
+                }
+            }
+        }
+        
+        return false; // No conflicts
+    } catch (error) {
+        console.error('Error checking reservation conflicts:', error);
+        return false; // Assume no conflict if there's an error
+    }
+}
+
 
     async function loadDropdowns() {
         // Load Citizens, Spots, Lots, Sensors
