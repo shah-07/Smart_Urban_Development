@@ -101,9 +101,9 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="location" class="form-label">Location</label>
-                        <input type="text" class="form-control" id="location" required>
-                    </div>
+    <label for="location" class="form-label">Location</label>
+    <input type="text" class="form-control" id="location" readonly required>
+</div>
                     <div class="mb-3">
                         <label for="timestamp" class="form-label">Timestamp</label>
                         <input type="datetime-local" class="form-control" id="timestamp" required>
@@ -142,6 +142,11 @@
     document.addEventListener('DOMContentLoaded', () => {
         applyRolePermissions();
         loadSensors();
+        document.getElementById('sensorID').addEventListener('change', function() {
+    if (this.value) {
+        loadSensorLocation(this.value);
+    }
+});
         loadTrafficData();
         loadChart();
     });
@@ -154,6 +159,23 @@
             document.getElementById('addEditModalLabel').textContent = 'Traffic Record Details (View Only)';
         }
     }
+
+    // NEW FUNCTION: Load sensor location when sensor is selected
+async function loadSensorLocation(sensorID) {
+    if (!sensorID) return;
+    
+    try {
+        const res = await fetch(`${API_PATH}/sensors.php`);
+        const sensors = await res.json();
+        const selectedSensor = sensors.find(s => s.sensorID == sensorID);
+        
+        if (selectedSensor && selectedSensor.location) {
+            document.getElementById('location').value = selectedSensor.location;
+        }
+    } catch (e) {
+        console.error("Error loading sensor location", e);
+    }
+}
 
     // 2. LOAD SENSORS (For Dropdown)
     async function loadSensors() {
@@ -285,23 +307,29 @@
 
     // 7. HELPER FUNCTIONS
     function prepareAddModal() {
-        document.getElementById('trafficForm').reset();
-        document.getElementById('recordId').value = '';
-        document.getElementById('addEditModalLabel').textContent = 'Add Traffic Record';
-    }
+    document.getElementById('trafficForm').reset();
+    document.getElementById('recordId').value = '';
+    document.getElementById('location').value = ''; // Clear location
+    document.getElementById('addEditModalLabel').textContent = 'Add Traffic Record';
+    // Make location readonly for new records
+    document.getElementById('location').readOnly = true;
+}
 
     function openEditModal(r) {
-        document.getElementById('addEditModalLabel').textContent = 'Edit Traffic Record';
-        document.getElementById('recordId').value = r.recordID;
-        document.getElementById('sensorID').value = r.sensorID;
-        document.getElementById('location').value = r.location;
-        document.getElementById('timestamp').value = r.timestamp.replace(" ", "T").slice(0, 16);
-        document.getElementById('vehicleCount').value = r.trafficFlow;
-        document.getElementById('congestion').value = r.congestionLevel;
-        document.getElementById('numAccidents').value = r.numberOfRoadAccidents;
-        
-        new bootstrap.Modal(document.getElementById('addEditModal')).show();
-    }
+    document.getElementById('addEditModalLabel').textContent = 'Edit Traffic Record';
+    document.getElementById('recordId').value = r.recordID;
+    document.getElementById('sensorID').value = r.sensorID;
+    document.getElementById('location').value = r.location;
+    document.getElementById('timestamp').value = r.timestamp.replace(" ", "T").slice(0, 16);
+    document.getElementById('vehicleCount').value = r.trafficFlow;
+    document.getElementById('congestion').value = r.congestionLevel;
+    document.getElementById('numAccidents').value = r.numberOfRoadAccidents;
+    
+    // For editing, make location editable in case it needs correction
+    document.getElementById('location').readOnly = false;
+    
+    new bootstrap.Modal(document.getElementById('addEditModal')).show();
+}
 
     function getCongestionColor(level) {
         switch(level) {

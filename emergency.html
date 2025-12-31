@@ -218,7 +218,6 @@
                             <th>Dispatch</th>
                             <th>Arrival</th>
                             <th>Response Time</th>
-                            <th>Service Time</th>
                             <th>Performance</th>
                             <th id="historyActionsHeader">Action Buttons</th>
                         </tr>
@@ -526,41 +525,40 @@
 
     // --- HISTORY ---
     async function loadHistory() {
-        const data = await fetchJSON(`${API_PATH}/responses.php`);
-        if(!Array.isArray(data)) return;
-        document.getElementById('statResolved').innerText = data.length;
+    const data = await fetchJSON(`${API_PATH}/responses.php`);
+    if(!Array.isArray(data)) return;
+    document.getElementById('statResolved').innerText = data.length;
 
-        document.getElementById('historyBody').innerHTML = data.map(h => {
-            let btns = '-';
-            if(userRole === 'admin') {
-                btns = `
-                    <div class="action-buttons">
-                        <button class="btn btn-sm btn-warning text-white" onclick='editHist(${JSON.stringify(h)})'><i class="fas fa-edit me-1"></i> Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="delHist(${h.responseID})"><i class="fas fa-trash me-1"></i> Delete</button>
-                    </div>`;
-            }
-            
-            const performanceBadge = h.performance === 'Excellent' ? 'bg-success' : 
-                                     h.performance === 'Good' ? 'bg-primary' : 'bg-danger';
-            
-            return `
-            <tr>
-                <td>${h.incidentID}</td>
-                <td>${h.incidentType || '-'}</td>
-                <td>${h.location || '-'}</td>
-                <td>${h.reportTime || '-'}</td>
-                <td>${h.dispatchTime}</td>
-                <td>${h.arrivalTime}</td>
-                <td>${h.responseTime || '0'} m</td>
-                <td>${h.serviceTime || '0'} m</td>
-                <td><span class="badge ${performanceBadge}">${h.performance || 'N/A'}</span></td>
-                <td>${btns}</td>
-            </tr>`;
-        }).join('');
+    document.getElementById('historyBody').innerHTML = data.map(h => {
+        let btns = '-';
+        if(userRole === 'admin') {
+            btns = `
+                <div class="action-buttons">
+                    <button class="btn btn-sm btn-warning text-white" onclick='editHist(${JSON.stringify(h)})'><i class="fas fa-edit me-1"></i> Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="delHist(${h.responseID})"><i class="fas fa-trash me-1"></i> Delete</button>
+                </div>`;
+        }
         
-        // Re-apply role-based access after loading data
-        applyRoleBasedAccess();
-    }
+        const performanceBadge = h.performance === 'Excellent' ? 'bg-success' : 
+                                 h.performance === 'Good' ? 'bg-primary' : 'bg-danger';
+        
+        return `
+        <tr>
+            <td>${h.incidentID}</td>
+            <td>${h.incidentType || '-'}</td>
+            <td>${h.location || '-'}</td>
+            <td>${h.reportTime || '-'}</td>
+            <td>${h.dispatchTime}</td>
+            <td>${h.arrivalTime}</td>
+            <td>${h.responseTime || '0'} m</td>
+            <td><span class="badge ${performanceBadge}">${h.performance || 'N/A'}</span></td>
+            <td>${btns}</td>
+        </tr>`;
+    }).join('');
+    
+    // Re-apply role-based access after loading data
+    applyRoleBasedAccess();
+}
 
     // --- VEHICLES & DROPDOWN ---
     async function loadVehicles() {

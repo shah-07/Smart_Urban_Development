@@ -100,18 +100,19 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
-                        <tr>
-                            <th>Reservation ID</th>
-                            <th>Spot ID</th>
-                            <th>Citizen ID</th>
-                            <th>Citizen Name</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>Payment Gateway</th>
-                            <th>Payment Date</th>
-                            <th>Action Buttons</th>
-                        </tr>
-                    </thead>
+    <tr>
+        <th>Reservation ID</th>
+        <th>Spot ID</th>
+        <th>Citizen ID</th>
+        <th>Citizen Name</th>
+        <th>Start Time</th>
+        <th>End Time</th>
+        <th>Amount ($)</th>  <!-- NEW COLUMN ADDED -->
+        <th>Payment Gateway</th>
+        <th>Payment Date</th>
+        <th>Action Buttons</th>
+    </tr>
+</thead>
                     <tbody id="resBody"></tbody>
                 </table>
             </div>
@@ -409,21 +410,22 @@
             if(data.error) throw new Error(data.error);
 
             tbody.innerHTML = data.map(r => `
-                <tr>
-                    <td>${r.reservationID}</td>
-                    <td>${r.spotID}</td>
-                    <td>${r.citizenID}</td>
-                    <td>${r.citizenName}</td>
-                    <td>${r.startTime}</td>
-                    <td>${r.endTime}</td>
-                    <td>${r.paymentGateway || '-'}</td>
-                    <td>${r.paymentDate || '-'}</td>
-                    <td class="action-buttons">
-                        <button class="btn btn-sm btn-info text-white me-1" onclick='openEditRes(${JSON.stringify(r)})'><i class="fas fa-edit"></i> Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteRes(${r.reservationID})"><i class="fas fa-trash-alt"></i> Cancel</button>
-                    </td>
-                </tr>
-            `).join('');
+    <tr>
+        <td>${r.reservationID}</td>
+        <td>${r.spotID}</td>
+        <td>${r.citizenID}</td>
+        <td>${r.citizenName}</td>
+        <td>${r.startTime}</td>
+        <td>${r.endTime}</td>
+        <td>$${parseFloat(r.amount).toFixed(2) || '0.00'}</td>  <!-- ADDED THIS LINE -->
+        <td>${r.paymentGateway || '-'}</td>
+        <td>${r.paymentDate || '-'}</td>
+        <td class="action-buttons">
+            <button class="btn btn-sm btn-info text-white me-1" onclick='openEditRes(${JSON.stringify(r)})'><i class="fas fa-edit"></i> Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteRes(${r.reservationID})"><i class="fas fa-trash-alt"></i> Cancel</button>
+        </td>
+    </tr>
+`).join('');
         } catch(e) { console.error(e); }
         applyRolePermissions();
     }
