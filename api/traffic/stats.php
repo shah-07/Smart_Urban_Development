@@ -5,8 +5,17 @@ header("Content-Type: application/json");
 include_once '../../config.php';
 
 try {
-    // Fetch timestamp and trafficFlow for the chart (Ordered by time ASC)
-    $sql = "SELECT timestamp, trafficFlow FROM Traffic_Data_T ORDER BY timestamp ASC LIMIT 50";
+    // Fetch weekly average traffic data
+    $sql = "SELECT 
+                DATE_FORMAT(MIN(timestamp), '%d-%m') as week_start,
+                DATE_FORMAT(MAX(timestamp), '%d-%m') as week_end,
+                CONCAT(DATE_FORMAT(MIN(timestamp), '%d-%m'), ' to ', DATE_FORMAT(MAX(timestamp), '%d-%m')) as week_range,
+                AVG(trafficFlow) as avg_traffic,
+                WEEK(timestamp) as week_number
+            FROM Traffic_Data_T 
+            GROUP BY WEEK(timestamp), YEAR(timestamp)
+            ORDER BY timestamp ASC
+            LIMIT 10";
     $stmt = $pdo->query($sql);
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
 } catch (PDOException $e) {

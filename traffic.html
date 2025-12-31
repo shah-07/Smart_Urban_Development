@@ -41,7 +41,7 @@
             <div style="height: 300px;">
                 <canvas id="trafficChart"></canvas>
             </div>
-            <p class="mt-3 text-center text-info">Data displayed here is based on records from the **TrafficData** table.</p>
+            <p class="mt-3 text-center text-info"><strong>Live Data</strong> of Traffic</p>
         </section>
         
         <hr>
@@ -96,8 +96,8 @@
                     <div class="mb-3">
                         <label for="sensorID" class="form-label">Sensor Source</label>
                         <select id="sensorID" class="form-select" required>
-                            <option value="">Loading Sensors...</option>
-                        </select>
+    <option value="">Select a sensor...</option>
+</select>
                     </div>
 
                     <div class="mb-3">
@@ -139,17 +139,34 @@
     const isCitizen = userRole === 'citizen';
     let chartInstance = null;
 
+
+    function getLocalDateTimeString(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+
     document.addEventListener('DOMContentLoaded', () => {
-        applyRolePermissions();
-        loadSensors();
-        document.getElementById('sensorID').addEventListener('change', function() {
-    if (this.value) {
-        loadSensorLocation(this.value);
-    }
-});
-        loadTrafficData();
-        loadChart();
+    applyRolePermissions();
+    loadSensors();
+    
+    document.getElementById('sensorID').addEventListener('change', function() {
+        if (this.value) {
+            loadSensorLocation(this.value);
+        }
     });
+    
+    // Set max timestamp to current LOCAL date/time
+    document.getElementById('timestamp').max = getLocalDateTimeString();
+    
+    loadTrafficData();
+    loadChart();
+});
     
     // 1. ROLE-BASED ACCESS CONTROL
     function applyRolePermissions() {
@@ -178,20 +195,32 @@ async function loadSensorLocation(sensorID) {
 }
 
     // 2. LOAD SENSORS (For Dropdown)
-    async function loadSensors() {
-        try {
-            const res = await fetch(`${API_PATH}/sensors.php`);
-            const data = await res.json();
-            const select = document.getElementById('sensorID');
-            if (data.length > 0) {
-                select.innerHTML = data.map(s => 
-                    `<option value="${s.sensorID}">ID ${s.sensorID} - ${s.location || 'Unknown'}</option>`
-                ).join('');
-            } else {
-                select.innerHTML = '<option value="">No Sensors Found</option>';
-            }
-        } catch (e) { console.error("Error loading sensors", e); }
-    }
+async function loadSensors() {
+    try {
+        const res = await fetch(`${API_PATH}/sensors.php`);
+        const data = await res.json();
+        const select = document.getElementById('sensorID');
+        
+        // Clear existing options except the first placeholder
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+        
+        if (data.length > 0) {
+            data.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s.sensorID;
+                option.textContent = `ID ${s.sensorID} - ${s.location || 'Unknown'}`;
+                select.appendChild(option);
+            });
+        } else {
+            const option = document.createElement('option');
+            option.value = "";
+            option.textContent = "No Sensors Found";
+            select.appendChild(option);
+        }
+    } catch (e) { console.error("Error loading sensors", e); }
+}
     
     // 3. LOAD DATA
     async function loadTrafficData() {
@@ -204,7 +233,14 @@ async function loadSensorLocation(sensorID) {
 
             tbody.innerHTML = data.map(r => {
                 // Determine highlight class
-                const rowClass = r.numberOfRoadAccidents > 0 ? 'table-danger' : ''; 
+                let rowClass = '';
+if (r.numberOfRoadAccidents >= 3 && r.numberOfRoadAccidents <= 5) {
+    rowClass = 'table-warning'; // Yellow for 3-5 accidents
+} else if (r.numberOfRoadAccidents > 5) {
+    rowClass = 'table-danger'; // Red for >5 accidents
+} else if (r.numberOfRoadAccidents >= 0) {
+    rowClass = 'table-success'; // Green for 1-2 accidents
+}
                 
                 let btns = '';
                 if (!isCitizen) {
@@ -240,28 +276,28 @@ async function loadSensorLocation(sensorID) {
             const res = await fetch(`${API_PATH}/stats.php`);
             const data = await res.json();
             
-            // Format labels (HH:MM)
-            const labels = data.map(r => r.timestamp.slice(11, 16));
-            const values = data.map(r => r.trafficFlow);
+            // Format labels (week ranges)
+const labels = data.map(r => r.week_range);
+const values = data.map(r => Math.round(r.avg_traffic));
 
-            const ctx = document.getElementById('trafficChart').getContext('2d');
-            if (chartInstance) chartInstance.destroy();
+const ctx = document.getElementById('trafficChart').getContext('2d');
+if (chartInstance) chartInstance.destroy();
 
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Vehicle Count',
-                        data: values,
-                        borderColor: 'rgba(52, 152, 219, 1)',
-                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Average Weekly Vehicle Count',
+            data: values,
+            borderColor: 'rgba(52, 152, 219, 1)',
+            backgroundColor: 'rgba(52, 152, 219, 0.2)',
+            fill: true,
+            tension: 0.3
+        }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+});
         } catch (e) { console.error("Chart Error", e); }
     }
 
@@ -310,6 +346,7 @@ async function loadSensorLocation(sensorID) {
     document.getElementById('trafficForm').reset();
     document.getElementById('recordId').value = '';
     document.getElementById('location').value = ''; // Clear location
+    document.getElementById('sensorID').value = ''; 
     document.getElementById('addEditModalLabel').textContent = 'Add Traffic Record';
     // Make location readonly for new records
     document.getElementById('location').readOnly = true;
@@ -326,7 +363,7 @@ async function loadSensorLocation(sensorID) {
     document.getElementById('numAccidents').value = r.numberOfRoadAccidents;
     
     // For editing, make location editable in case it needs correction
-    document.getElementById('location').readOnly = false;
+    document.getElementById('location').readOnly = true;
     
     new bootstrap.Modal(document.getElementById('addEditModal')).show();
 }
