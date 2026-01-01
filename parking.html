@@ -75,11 +75,13 @@
             <p class="lead text-muted">Manage <strong>Parking Spot Availability</strong> and <strong>Reservations</strong></p>
         </header>
 
-       <section class="mb-5 p-4 border rounded shadow-sm bg-white">
-    <h2 class="h4 mb-3"><i class="fas fa-chart-line me-2 text-primary"></i> Revenue Analytics</h2>
-    <div style="height: 300px;"><canvas id="parkingChart"></canvas></div>
+       <section class="mb-5 p-4 border rounded shadow-sm bg-white w-100">
+    <h2 class="h4 mb-3"><i class="fas fa-chart-line me-2 text-primary"></i>Weekly Revenue Analytics</h2>
+    <div class="w-100" style="height: 300px;">
+        <canvas id="parkingChart"></canvas>
+    </div>
     <p class="mt-3 text-center text-info">Visual representation of parking revenue over time.</p>
-    </section>
+</section>
         <hr>
 
         <!-- Table 1 - Reservations -->
@@ -760,18 +762,85 @@
         document.getElementById('editSpotSensor').innerHTML = senHTML;
     }
 
-    async function loadChart() {
-        const res = await fetch(`${API_PATH}/chart.php`);
-        const data = await res.json();
-        if(window.myChart) window.myChart.destroy();
-        window.myChart = new Chart(document.getElementById('parkingChart'), {
-            type: 'line',
-            data: {
-                labels: data.map(d=>d.date),
-                datasets: [{ label: 'Revenue', data: data.map(d=>d.total_revenue), borderColor: '#3498db', fill: true }]
+   async function loadChart() {
+    const res = await fetch(`${API_PATH}/chart.php`);
+    const data = await res.json();
+    if(window.myChart) window.myChart.destroy();
+    
+    // Extract data for chart
+    const weekLabels = data.map(d => d.week_label || `Week ${d.week_number}`);
+    const revenueData = data.map(d => parseFloat(d.total_revenue) || 0);
+    
+    window.myChart = new Chart(document.getElementById('parkingChart'), {
+        type: 'line',
+        data: {
+            labels: weekLabels,
+            datasets: [{ 
+                label: 'Weekly Revenue', 
+                data: revenueData, 
+                borderColor: '#3498db', 
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3 
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            size: 14
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Revenue: $${context.parsed.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Revenue ($)',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value;
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Week',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 0
+                    }
+                }
             }
-        });
-    }
+        }
+    });
+}
 </script>
 </body>
 </html>
