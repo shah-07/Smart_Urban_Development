@@ -5,23 +5,58 @@ header("Access-Control-Allow-Origin: *");
 include_once '../../config.php';
 
 try {
-    // Group reservations by Week and Sum the Amount
+    // Test query to see what data we have
+    $testSql = "SELECT 
+                    reservationID, 
+                    startTime, 
+                    endTime, 
+                    amount, 
+                    status,
+                    DATE_FORMAT(startTime, '%Y-%m-%d') as start_date
+                FROM Reservation_T 
+                WHERE status = 'Reserved'
+                ORDER BY startTime DESC
+                LIMIT 10";
+    
+    $testStmt = $pdo->query($testSql);
+    $testData = $testStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Check if we have any reserved data
+    if (empty($testData)) {
+        echo json_encode([
+            'data' => [],
+            'debug' => 'No reserved reservations found',
+            'test_data' => $testData
+        ]);
+        exit();
+    }
+    
+    // Weekly revenue query
     $sql = "SELECT 
-                YEARWEEK(startTime) as week_number,
-                CONCAT('Week ', WEEK(startTime), ' - ', DATE_FORMAT(MIN(startTime), '%b %d')) as week_label,
+                YEAR(startTime) as year,
+                WEEK(startTime) as week_number,
+                CONCAT('Week ', WEEK(startTime), ' (', 
+                       DATE_FORMAT(MIN(startTime), '%b %d'),
+                       ')') as week_label,
                 SUM(amount) as total_revenue,
                 COUNT(*) as total_bookings
             FROM Reservation_T 
-            WHERE startTime IS NOT NULL
-            GROUP BY YEARWEEK(startTime)
-            ORDER BY week_number DESC
-            LIMIT 12"; // Last 12 weeks
+            WHERE status = 'Reserved'
+            GROUP BY YEAR(startTime), WEEK(startTime)
+            ORDER BY year ASC, week_number ASC
+            LIMIT 12";
     
     $stmt = $pdo->query($sql);
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Reverse to show chronological order (oldest to newest)
-    echo json_encode(array_reverse($data));
+    echo json_encode([
+        'data' => $data,
+        'debug' => [
+            'test_sample' => $testData,
+            'weekly_data_count' => count($data)
+        ]
+    ]);
+    
 } catch (PDOException $e) {
     echo json_encode(['error' => $e->getMessage()]);
 }

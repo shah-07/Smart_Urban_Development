@@ -10,10 +10,13 @@
     <style>
         /* General Layout Styles (Consistency) */
         .sidebar {
-            height: 100vh;
-            background-color: #2c3e50;
-            padding-top: 20px;
-        }
+    min-width: 250px; /* Add this line */
+    max-width: 250px; /* Add this line */
+    height: 100vh;
+    background-color: #2c3e50;
+    padding-top: 20px;
+    flex-shrink: 0; /* Prevent shrinking */
+}
         .sidebar a {
             color: #ecf0f1;
             padding: 15px 20px;
@@ -26,8 +29,41 @@
             color: white;
         }
         .main-content {
-            padding: 30px;
-        }
+    padding: 30px;
+    flex-grow: 1;
+    min-width: 0; /* Allow content to shrink if needed */
+}
+.d-flex {
+    overflow: hidden; /* Prevent horizontal scrolling */
+}
+
+
+/* Validation styling */
+.is-invalid {
+    border-color: #dc3545 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.is-invalid:focus {
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+}
+
+.invalid-feedback {
+    display: none;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+
+.invalid-feedback.d-block {
+    display: block !important;
+}
+
+
         /* Specific Styles */
         .spot-available { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
         .spot-reserved { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
@@ -102,19 +138,20 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
-    <tr>
-        <th>Reservation ID</th>
-        <th>Spot ID</th>
-        <th>Citizen ID</th>
-        <th>Citizen Name</th>
-        <th>Start Time</th>
-        <th>End Time</th>
-        <th>Amount ($)</th>  <!-- NEW COLUMN ADDED -->
-        <th>Payment Gateway</th>
-        <th>Payment Date</th>
-        <th>Action Buttons</th>
-    </tr>
-</thead>
+                        <tr>
+                            <th>Reservation ID</th>
+                            <th>Spot ID</th>
+                            <th>Citizen ID</th>
+                            <th>Citizen Name</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Amount ($)</th>  <!-- NEW COLUMN ADDED -->
+                            <th>Payment Gateway</th>
+                            <th>Payment Date</th>
+                            <th>Status</th>
+                            <th>Action Buttons</th>
+                        </tr>
+                    </thead>
                     <tbody id="resBody"></tbody>
                 </table>
             </div>
@@ -346,48 +383,90 @@
     
         // 1. ROLE-BASED ACCESS CONTROL
     function applyRolePermissions() {
-        if (isCitizen) {
-            // Hide Add buttons
-            document.querySelector('[data-bs-target="#addResModal"]').style.display = 'none';
-            document.querySelector('[data-bs-target="#addSpotModal"]').style.display = 'none';
-            
-            // Hide Actions headers in tables
-            const tables = document.querySelectorAll('table');
-            tables.forEach(table => {
-                const headers = table.querySelectorAll('th');
-                headers.forEach(header => {
-                    if (header.textContent.includes('Action') || header.textContent.includes('Actions')) {
-                        header.style.display = 'none';
-                    }
-                });
-            });
-
-            // Hide action buttons in both tables
-            document.querySelectorAll('.action-buttons').forEach(cell => {
-                cell.style.display = 'none';
-            });
-            
-            console.log('Citizen view: CRUD operations disabled');
-        } else {
-            console.log('Admin view: Full CRUD operations enabled');
-        }
-    }
-
+    const userRole = sessionStorage.getItem('userRole') || 'admin'; // Default to admin for testing
+    const isCitizen = userRole === 'citizen';
     
+    if (isCitizen) {
+        // === RESERVATION TABLE (TABLE 1) ===
+        // Change "Add New Reservation" button for citizens
+        const addResBtn = document.querySelector('[data-bs-target="#addResModal"]');
+        if (addResBtn) {
+            addResBtn.innerHTML = '<i class="fas fa-plus me-1"></i> Request New Reservation';
+            addResBtn.classList.remove('btn-success');
+            addResBtn.classList.add('btn-primary');
+        }
+        
+        // Hide "Add New Parking Spot" button completely
+        document.querySelector('[data-bs-target="#addSpotModal"]').style.display = 'none';
+        
+        // Hide Actions column header in Reservations table
+        const resTable = document.querySelectorAll('table')[0]; // First table is reservations
+        if (resTable) {
+            const resHeaders = resTable.querySelectorAll('th');
+            resHeaders.forEach(header => {
+                if (header.textContent.includes('Action') || header.textContent.includes('Actions')) {
+                    header.style.display = 'none';
+                }
+            });
+        }
+        
+        // === PARKING SPOTS TABLE (TABLE 2) ===
+        // Hide Actions column header in Parking Spots table
+        const spotTable = document.querySelectorAll('table')[1]; // Second table is parking spots
+        if (spotTable) {
+            const spotHeaders = spotTable.querySelectorAll('th');
+            spotHeaders.forEach(header => {
+                if (header.textContent.includes('Action') || header.textContent.includes('Actions')) {
+                    header.style.display = 'none';
+                }
+            });
+        }
 
-
-    document.addEventListener('DOMContentLoaded', () => {
-        applyRolePermissions(); // ADD THIS LINE
-        loadDropdowns();
-        loadReservations();
-        loadSpots();
-        loadChart();
-    });
-
+        // Hide all action buttons in both tables
+        document.querySelectorAll('.action-buttons').forEach(cell => {
+            cell.style.display = 'none';
+        });
+        
+        // === MODAL PERMISSIONS ===
+        // Disable form submissions for citizens (handled individually in form handlers)
+        // Note: We're allowing citizens to submit reservation requests, so we handle this in form submission
+        
+        console.log('Citizen view: Reservation requests enabled, editing disabled');
+    } else {
+        // Admin view - ensure buttons are visible
+        const addResBtn = document.querySelector('[data-bs-target="#addResModal"]');
+        if (addResBtn) {
+            addResBtn.innerHTML = '<i class="fas fa-plus me-1"></i> Add New Reservation';
+            addResBtn.classList.remove('btn-primary');
+            addResBtn.classList.add('btn-success');
+            addResBtn.style.display = 'block';
+        }
+        
+        const addSpotBtn = document.querySelector('[data-bs-target="#addSpotModal"]');
+        if (addSpotBtn) {
+            addSpotBtn.style.display = 'block';
+        }
+        
+        // Show Actions column headers
+        document.querySelectorAll('th').forEach(header => {
+            if (header.style.display === 'none') {
+                header.style.display = '';
+            }
+        });
+        
+        // Show all action buttons
+        document.querySelectorAll('.action-buttons').forEach(cell => {
+            cell.style.display = '';
+        });
+        
+        console.log('Admin view: Full CRUD operations enabled');
+    }
+}
 
     const API_PATH = 'api/parking';
 
     document.addEventListener('DOMContentLoaded', () => {
+        applyRolePermissions();
         loadDropdowns();
         loadReservations();
         loadSpots();
@@ -405,34 +484,272 @@
 
     // --- LOAD RESERVATIONS (TABLE 1) ---
     async function loadReservations() {
-        try {
-            const res = await fetch(`${API_PATH}/reservations.php`);
-            const data = await res.json();
-            const tbody = document.getElementById('resBody');
-            if(data.error) throw new Error(data.error);
+    try {
+        const res = await fetch(`${API_PATH}/reservations.php`);
+        const data = await res.json();
+        const tbody = document.getElementById('resBody');
+        if(data.error) throw new Error(data.error);
 
-            tbody.innerHTML = data.map(r => `
-    <tr>
-        <td>${r.reservationID}</td>
-        <td>${r.spotID}</td>
-        <td>${r.citizenID}</td>
-        <td>${r.citizenName}</td>
-        <td>${r.startTime}</td>
-        <td>${r.endTime}</td>
-        <td>$${parseFloat(r.amount).toFixed(2) || '0.00'}</td>  <!-- ADDED THIS LINE -->
-        <td>${r.paymentGateway || '-'}</td>
-        <td>${r.paymentDate || '-'}</td>
-        <td class="action-buttons">
-            <button class="btn btn-sm btn-info text-white me-1" onclick='openEditRes(${JSON.stringify(r)})'><i class="fas fa-edit"></i> Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteRes(${r.reservationID})"><i class="fas fa-trash-alt"></i> Cancel</button>
-        </td>
-    </tr>
-`).join('');
-        } catch(e) { console.error(e); }
-        applyRolePermissions();
+        tbody.innerHTML = data.map(r => {
+            // Determine status badge color
+            let statusBadgeClass = 'bg-secondary';
+            if (r.status === 'Reserved') statusBadgeClass = 'bg-success';
+            if (r.status === 'Pending') statusBadgeClass = 'bg-warning';
+            
+            // Determine action buttons based on role and status
+            let actionButtons = '';
+            if (!isCitizen) {
+                // Admin buttons
+                if (r.status === 'Pending') {
+                    actionButtons = `
+                        <button class="btn btn-sm btn-success me-1" onclick="confirmReservation(${r.reservationID})">
+                            <i class="fas fa-check"></i> Confirm
+                        </button>
+                        <button class="btn btn-sm btn-info text-white me-1" onclick='openEditRes(${JSON.stringify(r)})'>
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteRes(${r.reservationID})">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    `;
+                } else {
+                    actionButtons = `
+                        <button class="btn btn-sm btn-info text-white me-1" onclick='openEditRes(${JSON.stringify(r)})'>
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteRes(${r.reservationID})">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    `;
+                }
+            } else {
+                // Citizen - no action buttons
+                actionButtons = '<span class="text-muted">No actions</span>';
+            }
+            
+            return `
+            <tr>
+                <td>${r.reservationID}</td>
+                <td>${r.spotID}</td>
+                <td>${r.citizenID}</td>
+                <td>${r.citizenName}</td>
+                <td>${r.startTime}</td>
+                <td>${r.endTime}</td>
+                <td>$${parseFloat(r.amount).toFixed(2) || '0.00'}</td>
+                <td>${r.paymentGateway || '-'}</td>
+                <td>${r.paymentDate || '-'}</td>
+                <td>
+                    <span class="badge ${statusBadgeClass}">${r.status}</span>
+                </td>
+                <td class="action-buttons">
+                    ${actionButtons}
+                </td>
+            </tr>
+            `;
+        }).join('');
+    } catch(e) { 
+        console.error(e); 
+    }
+}
+
+
+// New function to confirm a reservation
+async function confirmReservation(reservationID) {
+    if (isCitizen) {
+        alert('Citizens cannot confirm reservations.');
+        return;
     }
     
+    if (confirm('Are you sure you want to confirm this reservation?')) {
+        try {
+            const response = await fetch(`${API_PATH}/reservations.php`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    reservationID: reservationID,
+                    newStatus: 'Reserved'
+                })
+            });
+            
+            const result = await response.json();
+            if (result.message) {
+                alert('Reservation confirmed successfully!');
+                loadReservations();
+            } else if (result.error) {
+                alert('Error: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error confirming reservation:', error);
+            alert('Error confirming reservation.');
+        }
+    }
+}
 
+// Real-time validation for datetime inputs
+function setupRealTimeValidation() {
+    const startTimeInput = document.getElementById('addResStart');
+    const endTimeInput = document.getElementById('addResEnd');
+    const editStartTimeInput = document.getElementById('editResStart');
+    const editEndTimeInput = document.getElementById('editResEnd');
+    
+    // Add validation for Add Reservation form
+    if (startTimeInput && endTimeInput) {
+        startTimeInput.addEventListener('change', function() {
+            validateDateTimeInputs(this, endTimeInput, 'add');
+        });
+        
+        endTimeInput.addEventListener('change', function() {
+            validateDateTimeInputs(startTimeInput, this, 'add');
+        });
+    }
+    
+    // Add validation for Edit Reservation form
+    if (editStartTimeInput && editEndTimeInput) {
+        editStartTimeInput.addEventListener('change', function() {
+            validateDateTimeInputs(this, editEndTimeInput, 'edit');
+        });
+        
+        editEndTimeInput.addEventListener('change', function() {
+            validateDateTimeInputs(editStartTimeInput, this, 'edit');
+        });
+    }
+}
+
+function validateDateTimeInputs(startInput, endInput, formType) {
+    const startTime = startInput.value;
+    const endTime = endInput.value;
+    
+    if (!startTime || !endTime) return;
+    
+    const currentTime = new Date();
+    const selectedStartTime = new Date(startTime);
+    const selectedEndTime = new Date(endTime);
+    
+    // Reset any previous error styling
+    startInput.classList.remove('is-invalid');
+    endInput.classList.remove('is-invalid');
+    
+    // Check if start time is in the past
+    if (selectedStartTime < currentTime) {
+        startInput.classList.add('is-invalid');
+        showTooltip(startInput, 'Start time cannot be in the past');
+        return false;
+    }
+    
+    // Check if end time is before start time
+    if (selectedEndTime <= selectedStartTime) {
+        endInput.classList.add('is-invalid');
+        showTooltip(endInput, 'End time must be after start time');
+        return false;
+    }
+    
+    return true;
+}
+
+function showTooltip(input, message) {
+    // Remove existing tooltip
+    const existingTooltip = input.parentElement.querySelector('.invalid-feedback');
+    if (existingTooltip) {
+        existingTooltip.remove();
+    }
+    
+    // Create new tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'invalid-feedback d-block';
+    tooltip.textContent = message;
+    input.parentElement.appendChild(tooltip);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (tooltip.parentElement) {
+            tooltip.remove();
+            input.classList.remove('is-invalid');
+        }
+    }, 5000);
+}
+
+// Call this in DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    applyRolePermissions();
+    loadDropdowns();
+    loadReservations();
+    loadSpots();
+    loadChart();
+    setupRealTimeValidation(); // Add this line
+});
+
+// Updated conflict checking function with detailed conflict information
+async function checkReservationConflict(spotID, startTime, endTime, excludeReservationID = null) {
+    try {
+        const response = await fetch(`${API_PATH}/check_conflict.php`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                spotID: spotID,
+                startTime: startTime,
+                endTime: endTime,
+                excludeReservationID: excludeReservationID
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.hasConflict && result.conflictingReservations) {
+            // We already have conflict details from the API
+            return {
+                hasConflict: true,
+                conflictingDetails: result.conflictingReservations
+            };
+        }
+        
+        // Fallback: Fetch details manually if API didn't provide them
+        if (result.hasConflict) {
+            try {
+                const res = await fetch(`${API_PATH}/reservations.php`);
+                const allReservations = await res.json();
+                
+                // Find reservations for the same spot
+                const spotReservations = allReservations.filter(r => 
+                    r.spotID == spotID && 
+                    r.reservationID != excludeReservationID
+                );
+                
+                // Check for time overlaps manually
+                const newStart = new Date(startTime);
+                const newEnd = new Date(endTime);
+                
+                const conflicts = spotReservations.filter(r => {
+                    const existingStart = new Date(r.startTime);
+                    const existingEnd = new Date(r.endTime);
+                    
+                    // Check for overlap: NOT (new ends before existing starts OR new starts after existing ends)
+                    return !(newEnd <= existingStart || newStart >= existingEnd);
+                });
+                
+                if (conflicts.length > 0) {
+                    return {
+                        hasConflict: true,
+                        conflictingDetails: conflicts
+                    };
+                }
+            } catch (e) {
+                console.error('Error fetching conflict details:', e);
+            }
+            
+            return {
+                hasConflict: true,
+                conflictingDetails: []
+            };
+        }
+        
+        return { hasConflict: false, conflictingDetails: [] };
+        
+    } catch (error) {
+        console.error('Error checking reservation conflicts:', error);
+        return { hasConflict: false, conflictingDetails: [] };
+    }
+}
+    
     // --- LOAD SPOTS (TABLE 2) ---
     async function loadSpots() {
         try {
@@ -465,47 +782,179 @@
     }
 
     // --- ADD/EDIT ACTIONS ---
-    // Reservations - Add form with validation
-    document.getElementById('addResForm').onsubmit = async (e) => {
+   
+// --- ADD RESERVATION FORM ---
+document.getElementById('addResForm').onsubmit = async (e) => {
     e.preventDefault();
-    
-    if (isCitizen) {
-        alert('Citizens cannot add reservations.');
-        return;
-    }
     
     // Get form values
     const spotID = document.getElementById('addResSpot').value;
     const startTime = document.getElementById('addResStart').value;
     const endTime = document.getElementById('addResEnd').value;
+    const citizenID = document.getElementById('addResCitizen').value;
+    const amount = document.getElementById('addResAmount').value;
     
-    // Validate start time is before end time
-    if (new Date(startTime) >= new Date(endTime)) {
-        alert('Error: Start time must be before end time.');
+    // --- VALIDATION 1: Start time cannot be in the past ---
+    const currentTime = new Date();
+    const selectedStartTime = new Date(startTime);
+    
+    if (selectedStartTime < currentTime) {
+        alert('Error: Start time cannot be in the past. Please select a future date and time.');
         return;
     }
     
-    // Check for reservation conflicts
-    const hasConflict = await checkReservationConflict(spotID, startTime, endTime);
-    if (hasConflict) {
-        alert('Error: This parking spot is already reserved during the selected time period.');
+    // --- VALIDATION 2: End time cannot be before start time ---
+    const selectedEndTime = new Date(endTime);
+    if (selectedEndTime <= selectedStartTime) {
+        alert('Error: End time must be after start time.');
         return;
     }
     
-    await apiCall(`${API_PATH}/reservations.php`, 'POST', {
-        citizenID: document.getElementById('addResCitizen').value,
+    // --- VALIDATION 3: Check for overlapping reservations ---
+    const conflictCheck = await checkReservationConflict(spotID, startTime, endTime);
+    if (conflictCheck.hasConflict) {
+        // Build detailed error message
+        let errorMessage = 'Error: This parking spot is already booked during your selected time period.\n\n';
+        
+        if (conflictCheck.conflictingDetails && conflictCheck.conflictingDetails.length > 0) {
+            errorMessage += 'Conflicting reservations:\n';
+            conflictCheck.conflictingDetails.forEach((conflict, index) => {
+                errorMessage += `${index + 1}. Reservation #${conflict.reservationID}:\n`;
+                errorMessage += `   Time: ${conflict.startTime} to ${conflict.endTime}\n`;
+                errorMessage += `   Status: ${conflict.status}\n`;
+                errorMessage += `   Booked by: ${conflict.citizenName || 'N/A'}\n\n`;
+            });
+        } else {
+            errorMessage += 'The selected time period overlaps with an existing reservation.';
+        }
+        
+        alert(errorMessage);
+        return;
+    }
+    
+    // --- Additional validation: Amount must be positive ---
+    if (parseFloat(amount) <= 0) {
+        alert('Error: Amount must be greater than 0.');
+        return;
+    }
+    
+    // All validations passed, submit the form
+    const requestData = {
+        citizenID: citizenID,
         spotID: spotID,
         startTime: startTime,
         endTime: endTime,
-        amount: document.getElementById('addResAmount').value,
-        paymentGateway: document.getElementById('addResGateway').value
-    });
-    bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
-    loadReservations();
+        amount: amount,
+        paymentGateway: document.getElementById('addResGateway').value,
+        userRole: isCitizen ? 'Citizen' : 'Admin'
+    };
+    
+    const result = await apiCall(`${API_PATH}/reservations.php`, 'POST', requestData);
+    
+    if (result && !result.error) {
+        bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
+        loadReservations();
+        
+        // Show appropriate message
+        const message = isCitizen 
+            ? 'Your reservation request has been submitted and is pending approval.'
+            : 'Reservation created successfully!';
+        alert(message);
+    }
 };
 
+// --- EDIT RESERVATION FORM ---
+document.getElementById('editResForm').onsubmit = async (e) => {
+    e.preventDefault();
+    
+    if (isCitizen) {
+        alert('Citizens cannot edit reservations.');
+        return;
+    }
+    
+    // Get form values
+    const reservationID = document.getElementById('editResID').value;
+    const spotID = document.getElementById('editResSpot').value;
+    const startTime = document.getElementById('editResStart').value;
+    const endTime = document.getElementById('editResEnd').value;
+    const amount = document.getElementById('editResAmount').value;
+    
+    // --- VALIDATION 1: Start time cannot be in the past ---
+    const currentTime = new Date();
+    const selectedStartTime = new Date(startTime);
+    
+    // For editing, we need to check if it's being changed to a past time
+    // First, get the original reservation to check
+    try {
+        const res = await fetch(`${API_PATH}/reservations.php`);
+        const allReservations = await res.json();
+        const originalReservation = allReservations.find(r => r.reservationID == reservationID);
+        
+        // If start time is being changed AND new time is in the past, show error
+        if (originalReservation && new Date(originalReservation.startTime).getTime() !== selectedStartTime.getTime()) {
+            if (selectedStartTime < currentTime) {
+                alert('Error: Start time cannot be changed to a past time.');
+                return;
+            }
+        }
+    } catch (error) {
+        console.error('Error checking original reservation:', error);
+    }
+    
+    // --- VALIDATION 2: End time cannot be before start time ---
+    const selectedEndTime = new Date(endTime);
+    if (selectedEndTime <= selectedStartTime) {
+        alert('Error: End time must be after start time.');
+        return;
+    }
+    
+    // --- VALIDATION 3: Check for overlapping reservations (excluding current one) ---
+    const conflictCheck = await checkReservationConflict(spotID, startTime, endTime, reservationID);
+    if (conflictCheck.hasConflict) {
+        // Build detailed error message
+        let errorMessage = 'Error: This parking spot is already booked during your selected time period.\n\n';
+        
+        if (conflictCheck.conflictingDetails && conflictCheck.conflictingDetails.length > 0) {
+            errorMessage += 'Conflicting reservations:\n';
+            conflictCheck.conflictingDetails.forEach((conflict, index) => {
+                errorMessage += `${index + 1}. Reservation #${conflict.reservationID}:\n`;
+                errorMessage += `   Time: ${conflict.startTime} to ${conflict.endTime}\n`;
+                errorMessage += `   Status: ${conflict.status}\n`;
+                errorMessage += `   Booked by: ${conflict.citizenName || 'N/A'}\n\n`;
+            });
+        } else {
+            errorMessage += 'The selected time period overlaps with an existing reservation.';
+        }
+        
+        alert(errorMessage);
+        return;
+    }
+    
+    // --- Additional validation: Amount must be positive ---
+    if (parseFloat(amount) <= 0) {
+        alert('Error: Amount must be greater than 0.');
+        return;
+    }
+    
+    // All validations passed, submit the form
+    const result = await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
+        reservationID: reservationID,
+        citizenID: document.getElementById('editResCitizen').value,
+        spotID: spotID,
+        startTime: startTime,
+        endTime: endTime,
+        amount: amount,
+        paymentGateway: document.getElementById('editResGateway').value
+    });
+    
+    if (result && !result.error) {
+        bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
+        loadReservations();
+        alert('Reservation updated successfully!');
+    }
+};
     // Reservations - Edit form with validation
-    document.getElementById('editResForm').onsubmit = async (e) => {
+document.getElementById('editResForm').onsubmit = async (e) => {
     e.preventDefault();
     
     if (isCitizen) {
@@ -526,9 +975,9 @@
     }
     
     // Check for reservation conflicts (excluding current reservation)
-    const hasConflict = await checkReservationConflict(spotID, startTime, endTime, reservationID);
-    if (hasConflict) {
-        alert('Error: This parking spot is already reserved during the selected time period.');
+    const conflictCheck = await checkReservationConflict(spotID, startTime, endTime, reservationID);
+    if (conflictCheck.hasConflict) {
+        alert(`Error: ${conflictCheck.message}`);
         return;
     }
     
@@ -544,7 +993,7 @@
     bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
     loadReservations();
 };
-
+    
     // Spots - Add form
     document.getElementById('addSpotForm').onsubmit = async (e) => {
         e.preventDefault();
@@ -691,10 +1140,20 @@
     };
 
     async function apiCall(url, method, body) {
-        const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-        const json = await res.json();
-        if(json.error) alert(json.error);
+    // Add user role to all requests
+    if (body) {
+        body.userRole = isCitizen ? 'Citizen' : 'Admin';
     }
+    
+    const res = await fetch(url, { 
+        method: method, 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify(body) 
+    });
+    const json = await res.json();
+    if(json.error) alert(json.error);
+    return json;
+}
 
     async function checkReservationConflict(spotID, startTime, endTime, excludeReservationID = null) {
     try {
@@ -763,84 +1222,128 @@
     }
 
    async function loadChart() {
-    const res = await fetch(`${API_PATH}/chart.php`);
-    const data = await res.json();
-    if(window.myChart) window.myChart.destroy();
-    
-    // Extract data for chart
-    const weekLabels = data.map(d => d.week_label || `Week ${d.week_number}`);
-    const revenueData = data.map(d => parseFloat(d.total_revenue) || 0);
-    
-    window.myChart = new Chart(document.getElementById('parkingChart'), {
-        type: 'line',
-        data: {
-            labels: weekLabels,
-            datasets: [{ 
-                label: 'Weekly Revenue', 
-                data: revenueData, 
-                borderColor: '#3498db', 
-                backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3 
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        font: {
-                            size: 14
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `Revenue: $${context.parsed.y.toFixed(2)}`;
-                        }
-                    }
-                }
+    try {
+        const res = await fetch(`${API_PATH}/chart.php`);
+        const response = await res.json();
+        
+        console.log('Chart API response:', response);
+        
+        if (response.error) {
+            console.error('Chart API error:', response.error);
+            document.getElementById('parkingChart').parentElement.innerHTML = 
+                `<div class="alert alert-warning">Chart data unavailable: ${response.error}</div>`;
+            return;
+        }
+        
+        // Handle the new response format
+        const chartData = response.data || [];
+        
+        if (!chartData || chartData.length === 0) {
+            console.log('No chart data available');
+            
+            // Check if we have debug info
+            if (response.debug) {
+                console.log('Debug info:', response.debug);
+            }
+            
+            document.getElementById('parkingChart').parentElement.innerHTML = 
+                `<div class="alert alert-info">
+                    No revenue data available. This could be because:
+                    <ul class="mb-0 mt-2">
+                        <li>No reservations have been confirmed yet (status: Reserved)</li>
+                        <li>Confirmed reservations don't have amounts set</li>
+                        <li>There are no reservations in the system</li>
+                    </ul>
+                </div>`;
+            return;
+        }
+        
+        if(window.myChart) window.myChart.destroy();
+        
+        // Extract data for chart
+        const weekLabels = chartData.map(d => d.week_label || `Week ${d.week_number}`);
+        const revenueData = chartData.map(d => parseFloat(d.total_revenue) || 0);
+        
+        console.log('Week labels:', weekLabels);
+        console.log('Revenue data:', revenueData);
+        
+        window.myChart = new Chart(document.getElementById('parkingChart'), {
+            type: 'line',
+            data: {
+                labels: weekLabels,
+                datasets: [{ 
+                    label: 'Weekly Revenue ($)', 
+                    data: revenueData, 
+                    borderColor: '#3498db', 
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3 
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
                         display: true,
-                        text: 'Revenue ($)',
-                        font: {
-                            size: 14,
-                            weight: 'bold'
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 14
+                            }
                         }
                     },
-                    ticks: {
-                        callback: function(value) {
-                            return '$' + value;
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Revenue: $${context.parsed.y.toFixed(2)}`;
+                            }
                         }
                     }
                 },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Week',
-                        font: {
-                            size: 14,
-                            weight: 'bold'
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Revenue ($)',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value;
+                            }
                         }
                     },
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 0
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Week',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+        
+    } catch (error) {
+        console.error('Error loading chart:', error);
+        document.getElementById('parkingChart').parentElement.innerHTML = 
+            `<div class="alert alert-danger">Error loading chart: ${error.message}</div>`;
+    }
 }
+
 </script>
 </body>
 </html>
