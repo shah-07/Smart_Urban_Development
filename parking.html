@@ -111,13 +111,13 @@
             <p class="lead text-muted">Manage <strong>Parking Spot Availability</strong> and <strong>Reservations</strong></p>
         </header>
 
-       <section class="mb-5 p-4 border rounded shadow-sm bg-white w-100">
-    <h2 class="h4 mb-3"><i class="fas fa-chart-line me-2 text-primary"></i>Weekly Revenue Analytics</h2>
-    <div class="w-100" style="height: 300px;">
-        <canvas id="parkingChart"></canvas>
-    </div>
-    <p class="mt-3 text-center text-info">Visual representation of parking revenue over time.</p>
-</section>
+        <section class="mb-5 p-4 border rounded shadow-sm bg-white w-100">
+        <h2 class="h4 mb-3"><i class="fas fa-chart-line me-2 text-primary"></i>Weekly Revenue Analytics</h2>
+        <div class="w-100" style="height: 300px;">
+            <canvas id="parkingChart"></canvas>
+        </div>
+        <p class="mt-3 text-center text-info">Visual representation of parking revenue over time.</p>
+        </section>
         <hr>
 
         <!-- Table 1 - Reservations -->
@@ -552,6 +552,257 @@
     }
 }
 
+// Atomic reservation function with retry logic
+async function makeAtomicReservation(formData, isCitizen, maxRetries = 3) {
+    let retries = 0;
+    
+    while (retries < maxRetries) {
+        try {
+            const response = await fetch(`${API_PATH}/reserve_atomic.php`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    ...formData,
+                    userRole: isCitizen ? 'Citizen' : 'Admin'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                return {
+                    success: true,
+                    reservationID: result.reservationID,
+                    message: result.message,
+                    status: result.status
+                };
+            } else if (result.code === 'DUPLICATE_ENTRY' && retries < maxRetries - 1) {
+                // Wait and retry
+                retries++;
+                const delay = Math.pow(2, retries) * 100; // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            } else {
+                return {
+                    success: false,
+                    error: result.error || 'Reservation failed',
+                    conflicts: result.conflicts
+                };
+            }
+        } catch (error) {
+            if (retries < maxRetries - 1) {
+                retries++;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+            }
+            return {
+                success: false,
+                error: 'Network error. Please try again.'
+            };
+        }
+    }
+}
+
+// Updated form submission
+document.getElementById('addResForm').onsubmit = async (e) => {
+    e.preventDefault();
+    
+    // Disable submit button to prevent double-click
+    const submitBtn = e.submitter;
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
+    submitBtn.disabled = true;
+    
+    try {
+        // 1. Client-side validation
+        const formData = {
+            citizenID: document.getElementById('addResCitizen').value,
+            spotID: document.getElementById('addResSpot').value,
+            startTime: document.getElementById('addResStart').value,
+            endTime: document.getElementById('addResEnd').value,
+            amount: document.getElementById('addResAmount').value,
+            paymentGateway: document.getElementById('addResGateway').value
+        };
+        
+        const validation = await validateReservationForm(formData, false);
+        
+        if (!validation.isValid) {
+            if (validation.hasDetailedConflict) {
+                showConflictDetailsModal(validation.conflictingReservations);
+            } else {
+                alert(validation.errors.join('\n'));
+            }
+            return;
+        }
+        
+        // 2. Show warnings if any
+        if (validation.warnings.length > 0) {
+            if (!confirm(`Warning: ${validation.warnings.join(' ')}\n\nDo you want to proceed?`)) {
+                return;
+            }
+        }
+        
+        // 3. Make atomic reservation
+        const result = await makeAtomicReservation(formData, isCitizen);
+        
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
+            loadReservations();
+            
+            // Show success message
+            alert(result.message);
+            
+            // Clear form
+            document.getElementById('addResForm').reset();
+        } else {
+            if (result.conflicts) {
+                showConflictDetailsModal(result.conflicts);
+            } else {
+                alert(`Reservation failed: ${result.error}`);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Reservation error:', error);
+        alert('An unexpected error occurred. Please try again.');
+    } finally {
+        // Restore button
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+};
+
+// For edit form (admin only)
+document.getElementById('editResForm').onsubmit = async (e) => {
+    e.preventDefault();
+    
+    if (isCitizen) {
+        alert('Citizens cannot edit reservations.');
+        return;
+    }
+    
+    const submitBtn = e.submitter;
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Updating...';
+    submitBtn.disabled = true;
+    
+    try {
+        const reservationID = document.getElementById('editResID').value;
+        const formData = {
+            citizenID: document.getElementById('editResCitizen').value,
+            spotID: document.getElementById('editResSpot').value,
+            startTime: document.getElementById('editResStart').value,
+            endTime: document.getElementById('editResEnd').value,
+            amount: document.getElementById('editResAmount').value,
+            paymentGateway: document.getElementById('editResGateway').value
+        };
+        
+        const validation = await validateReservationForm(formData, true, reservationID);
+        
+        if (!validation.isValid) {
+            if (validation.hasDetailedConflict) {
+                showConflictDetailsModal(validation.conflictingReservations);
+            } else {
+                alert(validation.errors.join('\n'));
+            }
+            return;
+        }
+        
+        // Use the original update endpoint for edits (not atomic, since we're modifying existing)
+        const result = await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
+            reservationID: reservationID,
+            ...formData
+        });
+        
+        if (result && !result.error) {
+            bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
+            loadReservations();
+            alert('Reservation updated successfully!');
+        }
+        
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+};
+
+
+// Optimistic UI update (makes app feel faster)
+function optimisticReservationAdd(formData, status) {
+    const tbody = document.getElementById('resBody');
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    
+    const tempRow = document.createElement('tr');
+    tempRow.id = 'temp-reservation';
+    tempRow.innerHTML = `
+        <td><i class="fas fa-spinner fa-spin me-1"></i>Processing...</td>
+        <td>${formData.spotID}</td>
+        <td>${formData.citizenID}</td>
+        <td>Loading...</td>
+        <td>${formData.startTime.replace('T', ' ')}</td>
+        <td>${formData.endTime.replace('T', ' ')}</td>
+        <td>$${parseFloat(formData.amount).toFixed(2)}</td>
+        <td>${formData.paymentGateway}</td>
+        <td>${now}</td>
+        <td><span class="badge bg-secondary">Processing</span></td>
+        <td class="action-buttons">
+            <span class="text-muted">Processing...</span>
+        </td>
+    `;
+    
+    // Add at the top of the table
+    if (tbody.firstChild) {
+        tbody.insertBefore(tempRow, tbody.firstChild);
+    } else {
+        tbody.appendChild(tempRow);
+    }
+    
+    // Scroll to show the new reservation
+    tempRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Remove optimistic update when done
+function removeOptimisticUpdate() {
+    const tempRow = document.getElementById('temp-reservation');
+    if (tempRow) {
+        tempRow.remove();
+    }
+}
+
+// Update your atomic reservation function:
+async function makeAtomicReservation(formData, isCitizen, maxRetries = 3) {
+    // Show optimistic update
+    optimisticReservationAdd(formData, isCitizen ? 'Pending' : 'Reserved');
+    
+    let retries = 0;
+    
+    try {
+        // ... existing atomic reservation code ...
+        
+        if (result.success) {
+            removeOptimisticUpdate();
+            return {
+                success: true,
+                reservationID: result.reservationID,
+                message: result.message,
+                status: result.status
+            };
+        } else {
+            removeOptimisticUpdate();
+            return {
+                success: false,
+                error: result.error || 'Reservation failed',
+                conflicts: result.conflicts
+            };
+        }
+    } catch (error) {
+        removeOptimisticUpdate();
+        return {
+            success: false,
+            error: 'Network error. Please try again.'
+        };
+    }
+}
 
 // New function to confirm a reservation
 async function confirmReservation(reservationID) {
@@ -1138,6 +1389,334 @@ document.getElementById('editResForm').onsubmit = async (e) => {
             loadSpots();
         } 
     };
+
+    // Enhanced conflict checking with detailed messages
+async function checkReservationWithDetails(spotID, startTime, endTime, excludeReservationID = null) {
+    try {
+        const response = await fetch(`${API_PATH}/check_conflict.php`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                spotID: spotID,
+                startTime: startTime,
+                endTime: endTime,
+                excludeReservationID: excludeReservationID
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            return {
+                hasConflict: true,
+                errorType: 'system',
+                message: result.error,
+                conflictingDetails: []
+            };
+        }
+        
+        if (result.hasConflict) {
+            let message = '';
+            
+            // Custom messages based on error type
+            if (result.errorType === 'duration') {
+                message = result.message;
+            } else if (result.errorType === 'max_duration') {
+                message = result.message;
+            } else if (result.conflictingReservations && result.conflictingReservations.length > 0) {
+                // Time overlap conflicts
+                message = `Parking spot is already booked during your selected time.\n\n`;
+                message += `Conflicting reservation(s):\n`;
+                
+                result.conflictingReservations.forEach((conflict, index) => {
+                    const start = new Date(conflict.startTime).toLocaleString();
+                    const end = new Date(conflict.endTime).toLocaleString();
+                    message += `${index + 1}. Reservation #${conflict.reservationID}\n`;
+                    message += `   Booked by: ${conflict.citizenName}\n`;
+                    message += `   Time: ${start} to ${end}\n`;
+                    message += `   Status: ${conflict.status}\n\n`;
+                });
+            } else {
+                message = 'Time slot is not available for this parking spot.';
+            }
+            
+            return {
+                hasConflict: true,
+                errorType: result.errorType || 'time_conflict',
+                message: message,
+                conflictingDetails: result.conflictingReservations || [],
+                spotStatus: result.spotStatus
+            };
+        }
+        
+        return {
+            hasConflict: false,
+            spotStatus: result.spotStatus
+        };
+        
+    } catch (error) {
+        console.error('Error checking reservation conflicts:', error);
+        return {
+            hasConflict: true,
+            errorType: 'network',
+            message: 'Spot is not available at that time and date. Please try different time and date',
+            conflictingDetails: []
+        };
+    }
+}
+
+// Unified validation function for reservation forms
+async function validateReservationForm(spotID, startTime, endTime, amount, isEdit = false, reservationID = null) {
+    const errors = [];
+    const warnings = [];
+    
+    // 1. Basic validation
+    if (!spotID) errors.push('Please select a parking spot.');
+    if (!startTime) errors.push('Start time is required.');
+    if (!endTime) errors.push('End time is required.');
+    if (!amount || parseFloat(amount) <= 0) errors.push('Amount must be greater than 0.');
+    
+    if (errors.length > 0) {
+        return { isValid: false, errors: errors };
+    }
+    
+    // 2. Date/time validation
+    const now = new Date();
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    // For new reservations, check start time is not in past
+    if (!isEdit && start < now) {
+        errors.push('Start time cannot be in the past.');
+    }
+    
+    // Check end time is after start time
+    if (end <= start) {
+        errors.push('End time must be after start time.');
+    }
+    
+    if (errors.length > 0) {
+        return { isValid: false, errors: errors };
+    }
+    
+    // 3. Advanced conflict checking
+    const conflictCheck = await checkReservationWithDetails(spotID, startTime, endTime, reservationID);
+    
+    if (conflictCheck.hasConflict) {
+        if (conflictCheck.errorType === 'time_conflict' && conflictCheck.conflictingDetails.length > 0) {
+            // Show detailed conflict information
+            return {
+                isValid: false,
+                errors: [conflictCheck.message],
+                hasDetailedConflict: true,
+                conflictingReservations: conflictCheck.conflictingDetails
+            };
+        } else {
+            return {
+                isValid: false,
+                errors: [conflictCheck.message]
+            };
+        }
+    }
+    
+    // 4. Check spot status
+    if (conflictCheck.spotStatus === 'Maintenance') {
+        warnings.push('This parking spot is currently under maintenance.');
+    } else if (conflictCheck.spotStatus === 'Occupied') {
+        warnings.push('This parking spot is currently occupied.');
+    }
+    
+    return {
+        isValid: true,
+        warnings: warnings,
+        spotStatus: conflictCheck.spotStatus
+    };
+}
+
+// Update your form submission handlers
+async function handleReservationFormSubmit(formData, isEdit = false, reservationID = null) {
+    // Show loading state
+    const submitBtn = event.submitter;
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking Availability...';
+    submitBtn.disabled = true;
+    
+    try {
+        const validation = await validateReservationForm(
+            formData.spotID,
+            formData.startTime,
+            formData.endTime,
+            formData.amount,
+            isEdit,
+            reservationID
+        );
+        
+        if (!validation.isValid) {
+            // Show detailed conflict modal if available
+            if (validation.hasDetailedConflict) {
+                showConflictDetailsModal(validation.conflictingReservations);
+            } else {
+                alert(validation.errors.join('\n'));
+            }
+            return false;
+        }
+        
+        // Show warnings if any
+        if (validation.warnings.length > 0) {
+            if (!confirm(`Warning: ${validation.warnings.join(' ')}\n\nDo you want to proceed?`)) {
+                return false;
+            }
+        }
+        
+        return true;
+        
+    } finally {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+// Function to show detailed conflict information in a modal
+function showConflictDetailsModal(conflicts) {
+    let conflictHtml = `
+        <div class="modal fade" id="conflictDetailsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Time Slot Conflict</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>The parking spot is already booked during your selected time.</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Reservation ID</th>
+                                        <th>Booked By</th>
+                                        <th>Start Time</th>
+                                        <th>End Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+    
+    conflicts.forEach(conflict => {
+        const start = new Date(conflict.startTime).toLocaleString();
+        const end = new Date(conflict.endTime).toLocaleString();
+        conflictHtml += `
+            <tr>
+                <td>#${conflict.reservationID}</td>
+                <td>${conflict.citizenName}</td>
+                <td>${start}</td>
+                <td>${end}</td>
+                <td><span class="badge ${conflict.status === 'Reserved' ? 'bg-success' : 'bg-warning'}">${conflict.status}</span></td>
+            </tr>`;
+    });
+    
+    conflictHtml += `
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Please select a different time slot or choose another parking spot.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    
+    // Add modal to DOM if not already present
+    if (!document.getElementById('conflictDetailsModal')) {
+        document.body.insertAdjacentHTML('beforeend', conflictHtml);
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('conflictDetailsModal'));
+    modal.show();
+}
+
+// Update your existing form submission handlers
+document.getElementById('addResForm').onsubmit = async (e) => {
+    e.preventDefault();
+    
+    const formData = {
+        citizenID: document.getElementById('addResCitizen').value,
+        spotID: document.getElementById('addResSpot').value,
+        startTime: document.getElementById('addResStart').value,
+        endTime: document.getElementById('addResEnd').value,
+        amount: document.getElementById('addResAmount').value,
+        paymentGateway: document.getElementById('addResGateway').value
+    };
+    
+    // Use the new validation
+    const isValid = await handleReservationFormSubmit(formData, false);
+    
+    if (!isValid) {
+        return;
+    }
+    
+    // If validation passes, proceed with API call
+    const result = await apiCall(`${API_PATH}/reservations.php`, 'POST', {
+        ...formData,
+        userRole: isCitizen ? 'Citizen' : 'Admin'
+    });
+    
+    if (result && !result.error) {
+        bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
+        loadReservations();
+        
+        const message = isCitizen 
+            ? 'Your reservation request has been submitted and is pending approval.'
+            : 'Reservation created successfully!';
+        alert(message);
+    }
+};
+
+document.getElementById('editResForm').onsubmit = async (e) => {
+    e.preventDefault();
+    
+    if (isCitizen) {
+        alert('Citizens cannot edit reservations.');
+        return;
+    }
+    
+    const reservationID = document.getElementById('editResID').value;
+    const formData = {
+        citizenID: document.getElementById('editResCitizen').value,
+        spotID: document.getElementById('editResSpot').value,
+        startTime: document.getElementById('editResStart').value,
+        endTime: document.getElementById('editResEnd').value,
+        amount: document.getElementById('editResAmount').value,
+        paymentGateway: document.getElementById('editResGateway').value
+    };
+    
+    // Use the new validation
+    const isValid = await handleReservationFormSubmit(formData, true, reservationID);
+    
+    if (!isValid) {
+        return;
+    }
+    
+    // If validation passes, proceed with API call
+    const result = await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
+        reservationID: reservationID,
+        ...formData
+    });
+    
+    if (result && !result.error) {
+        bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
+        loadReservations();
+        alert('Reservation updated successfully!');
+    }
+};
+
+
 
     async function apiCall(url, method, body) {
     // Add user role to all requests

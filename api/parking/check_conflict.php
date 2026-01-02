@@ -6,7 +6,6 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 include_once '../../config.php';
 
-// Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -20,41 +19,106 @@ try {
         exit();
     }
     
+    // Required fields validation
+    $required = ['spotID', 'startTime', 'endTime'];
+    foreach ($required as $field) {
+        if (!isset($input->$field)) {
+            echo json_encode(['error' => "Missing required field: $field"]);
+            exit();
+        }
+    }
+    
     $spotID = $input->spotID;
     $startTime = $input->startTime;
     $endTime = $input->endTime;
     $excludeReservationID = isset($input->excludeReservationID) ? $input->excludeReservationID : 0;
     
-    // Convert input to datetime format for SQL
+    // Convert to datetime
     $startDateTime = date('Y-m-d H:i:s', strtotime($startTime));
     $endDateTime = date('Y-m-d H:i:s', strtotime($endTime));
     
-    // VALIDATION 3: Check for date AND time conflicts with both Pending and Reserved statuses
-    // This checks if the new reservation overlaps with ANY existing reservation
-    $sql = "SELECT reservationID, startTime, endTime, status
-            FROM Reservation_T 
-            WHERE spotID = ? 
-            AND status IN ('Pending', 'Reserved')
-            AND reservationID != ?
-            AND NOT (
-                -- No overlap condition: new reservation ends before existing starts OR starts after existing ends
-                ? <= startTime OR ? >= endTime
-            )";
+    // Validate datetime conversion
+    if ($startDateTime === false || $endDateTime === false) {
+        echo json_encode(['error' => 'Invalid date/time format']);
+        exit();
+    }
+    
+    // Check if spot exists and is available
+    $spotCheck = $pdo->prepare("SELECT status FROM Parking_Spot_T WHERE spotID = ?");
+    $spotCheck->execute([$spotID]);
+    $spot = $spotCheck->fetch();
+    
+    if (!$spot) {
+        echo json_encode(['error' => 'Parking spot does not exist']);
+        exit();
+    }
+    
+    if ($spot['status'] === 'Maintenance') {
+        echo json_encode(['error' => 'Parking spot is under maintenance']);
+        exit();
+    }
+    
+    // ENHANCED OVERLAP CHECKING
+    // Check for ANY overlapping reservations (Pending or Reserved)
+    $sql = "SELECT 
+                r.reservationID,
+                r.citizenID,
+                CONCAT(c.fname, ' ', c.lname) as citizenName,
+                r.startTime,
+                r.endTime,
+                r.status,
+                TIMESTAMPDIFF(MINUTE, ?, r.endTime) as minutes_overlap_start,
+                TIMESTAMPDIFF(MINUTE, r.startTime, ?) as minutes_overlap_end
+            FROM Reservation_T r
+            LEFT JOIN Citizen_T c ON r.citizenID = c.citizenID
+            WHERE r.spotID = ? 
+            AND r.status IN ('Pending', 'Reserved')
+            AND r.reservationID != ?
+            AND (
+                -- 4 overlap scenarios:
+                -- 1. New reservation starts during existing reservation
+                (? BETWEEN r.startTime AND DATE_SUB(r.endTime, INTERVAL 1 SECOND))
+                OR
+                -- 2. New reservation ends during existing reservation
+                (? BETWEEN DATE_ADD(r.startTime, INTERVAL 1 SECOND) AND r.endTime)
+                OR
+                -- 3. New reservation completely contains existing reservation
+                (? <= r.startTime AND ? >= r.endTime)
+                OR
+                -- 4. Existing reservation completely contains new reservation
+                (r.startTime <= ? AND r.endTime >= ?)
+            )
+            ORDER BY r.startTime ASC";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
+        $startDateTime,  // ? for minutes_overlap_start
+        $endDateTime,    // ? for minutes_overlap_end
         $spotID,
         $excludeReservationID,
-        $endDateTime, // new reservation ends before existing starts
-        $startDateTime // new reservation starts after existing ends
+        $startDateTime,  // Scenario 1
+        $endDateTime,    // Scenario 2
+        $startDateTime,  // Scenario 3 start
+        $endDateTime,    // Scenario 3 end
+        $startDateTime,  // Scenario 4 start
+        $endDateTime     // Scenario 4 end
     ]);
     
     $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    
+    
+    // Return conflict details
     echo json_encode([
         'hasConflict' => count($conflicts) > 0,
         'conflictCount' => count($conflicts),
-        'conflictingReservations' => $conflicts
+        'conflictingReservations' => $conflicts,
+        'requestedTime' => [
+            'start' => $startDateTime,
+            'end' => $endDateTime,
+            'duration_minutes' => $durationMinutes
+        ],
+        'spotStatus' => $spot['status']
     ]);
     
 } catch (PDOException $e) {
