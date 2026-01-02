@@ -60,6 +60,7 @@ try {
     
     // ENHANCED OVERLAP CHECKING
     // Check for ANY overlapping reservations (Pending or Reserved)
+    // ENHANCED OVERLAP CHECKING WITH DETAILED CONFLICT INFO
     $sql = "SELECT 
                 r.reservationID,
                 r.citizenID,
@@ -67,8 +68,28 @@ try {
                 r.startTime,
                 r.endTime,
                 r.status,
-                TIMESTAMPDIFF(MINUTE, ?, r.endTime) as minutes_overlap_start,
-                TIMESTAMPDIFF(MINUTE, r.startTime, ?) as minutes_overlap_end
+                r.amount,
+                r.paymentGateway,
+                r.paymentDate,
+                r.created_by as bookedBy,
+                -- Calculate overlap type
+                CASE 
+                    WHEN ? BETWEEN r.startTime AND r.endTime THEN 'New starts during existing'
+                    WHEN ? BETWEEN r.startTime AND r.endTime THEN 'New ends during existing'
+                    WHEN ? <= r.startTime AND ? >= r.endTime THEN 'New completely overlaps existing'
+                    WHEN r.startTime <= ? AND r.endTime >= ? THEN 'Existing completely overlaps new'
+                    ELSE 'Time overlap'
+                END as conflict_type,
+                -- Calculate exact overlap minutes
+                GREATEST(
+                    0,
+                    LEAST(
+                        TIMESTAMPDIFF(MINUTE, ?, r.endTime),
+                        TIMESTAMPDIFF(MINUTE, r.startTime, ?)
+                    )
+                ) as overlap_minutes,
+                -- Calculate total reservation duration
+                TIMESTAMPDIFF(MINUTE, r.startTime, r.endTime) as reservation_duration
             FROM Reservation_T r
             LEFT JOIN Citizen_T c ON r.citizenID = c.citizenID
             WHERE r.spotID = ? 
@@ -92,21 +113,37 @@ try {
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        $startDateTime,  // ? for minutes_overlap_start
-        $endDateTime,    // ? for minutes_overlap_end
+        // For conflict_type calculation
+        $startDateTime, $endDateTime, $startDateTime, $endDateTime, $startDateTime, $endDateTime,
+        // For overlap_minutes calculation
+        $startDateTime, $endDateTime,
+        // Basic WHERE clause
         $spotID,
         $excludeReservationID,
-        $startDateTime,  // Scenario 1
-        $endDateTime,    // Scenario 2
-        $startDateTime,  // Scenario 3 start
-        $endDateTime,    // Scenario 3 end
-        $startDateTime,  // Scenario 4 start
-        $endDateTime     // Scenario 4 end
+        // Overlap scenarios
+        $startDateTime, $endDateTime, $startDateTime, $endDateTime, $startDateTime, $endDateTime
     ]);
     
     $conflicts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Calculate duration for the requested reservation
+    $durationMinutes = 0;
+    if ($startDateTime && $endDateTime) {
+        $start = new DateTime($startDateTime);
+        $end = new DateTime($endDateTime);
+        $interval = $start->diff($end);
+        $durationMinutes = ($interval->days * 24 * 60) + ($interval->h * 60) + $interval->i;
+    }
     
+    
+    
+        // Debug: Log what we're returning
+    error_log("=== CHECK_CONFLICT DEBUG ===");
+    error_log("Conflicts found: " . count($conflicts));
+    if (count($conflicts) > 0) {
+        error_log("First conflict sample: " . print_r($conflicts[0], true));
+    }
+    error_log("Spot status: " . $spot['status']);
     
     // Return conflict details
     echo json_encode([
@@ -118,7 +155,12 @@ try {
             'end' => $endDateTime,
             'duration_minutes' => $durationMinutes
         ],
-        'spotStatus' => $spot['status']
+        'spotStatus' => $spot['status'],
+        // Add debug info in development
+        '_debug' => [
+            'conflict_count' => count($conflicts),
+            'sample_conflict' => count($conflicts) > 0 ? $conflicts[0] : null
+        ]
     ]);
     
 } catch (PDOException $e) {

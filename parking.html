@@ -37,6 +37,42 @@
     overflow: hidden; /* Prevent horizontal scrolling */
 }
 
+/* Conflict Modal Styles */
+#conflictDetailsModal .modal-header {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+}
+
+#conflictDetailsModal .progress {
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #f0f0f0;
+}
+
+#conflictDetailsModal .progress-bar {
+    transition: width 0.6s ease;
+}
+
+#conflictDetailsModal .card {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+#conflictDetailsModal .card-header {
+    font-weight: 600;
+    border-bottom: none;
+}
+
+#conflictDetailsModal table {
+    font-size: 0.9rem;
+}
+
+#conflictDetailsModal table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+}
+
 
 /* Validation styling */
 .is-invalid {
@@ -238,6 +274,86 @@
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Conflict Details Modal -->
+<div class="modal fade" id="conflictDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Time Slot Conflict Detected
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle me-2"></i>
+                    The parking spot is already booked during your selected time.
+                </div>
+                
+                <!-- CENTERED Conflict Status Box -->
+                <div class="row mb-4 justify-content-center">
+                    <div class="col-md-8">
+                        <div class="card border-danger">
+                            <div class="card-header bg-danger text-white">
+                                <i class="fas fa-exclamation-circle me-1"></i> Conflict Status
+                            </div>
+                            <div class="card-body text-center">
+                                <p class="mb-2">
+                                    <strong>Conflicts Found:</strong>
+                                    <span id="conflictCount" class="badge bg-danger ms-2 fs-6"></span>
+                                </p>
+                                <p class="mb-0 text-danger">
+                                    <small>
+                                        <i class="fas fa-lightbulb me-1"></i>
+                                        Please select a different time or choose another spot.
+                                    </small>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h6 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-list-alt me-2"></i>
+                    Conflicting Reservations
+                </h6>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Reservation #</th>
+                                <th>Booked By</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Status</th>
+                                <th>Conflict Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="conflictTableBody">
+                            <!-- Conflicts will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>Tip:</strong> Try adjusting your reservation time or choose a different parking spot.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="tryDifferentTime()">
+                    <i class="fas fa-clock me-1"></i> Try Different Time
+                </button>
             </div>
         </div>
     </div>
@@ -552,57 +668,6 @@
     }
 }
 
-// Atomic reservation function with retry logic
-async function makeAtomicReservation(formData, isCitizen, maxRetries = 3) {
-    let retries = 0;
-    
-    while (retries < maxRetries) {
-        try {
-            const response = await fetch(`${API_PATH}/reserve_atomic.php`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    ...formData,
-                    userRole: isCitizen ? 'Citizen' : 'Admin'
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                return {
-                    success: true,
-                    reservationID: result.reservationID,
-                    message: result.message,
-                    status: result.status
-                };
-            } else if (result.code === 'DUPLICATE_ENTRY' && retries < maxRetries - 1) {
-                // Wait and retry
-                retries++;
-                const delay = Math.pow(2, retries) * 100; // Exponential backoff
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
-            } else {
-                return {
-                    success: false,
-                    error: result.error || 'Reservation failed',
-                    conflicts: result.conflicts
-                };
-            }
-        } catch (error) {
-            if (retries < maxRetries - 1) {
-                retries++;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                continue;
-            }
-            return {
-                success: false,
-                error: 'Network error. Please try again.'
-            };
-        }
-    }
-}
-
 // Updated form submission
 document.getElementById('addResForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -769,41 +834,180 @@ function removeOptimisticUpdate() {
     }
 }
 
-// Update your atomic reservation function:
-async function makeAtomicReservation(formData, isCitizen, maxRetries = 3) {
-    // Show optimistic update
-    optimisticReservationAdd(formData, isCitizen ? 'Pending' : 'Reserved');
+function showConflictDetailsModal(conflicts) {
+    console.log('Showing conflicts:', conflicts);
     
-    let retries = 0;
+    // Update conflict count
+    const conflictCount = conflicts.length;
+    document.getElementById('conflictCount').textContent = conflictCount;
+    
+    // Build conflict table
+    const tbody = document.getElementById('conflictTableBody');
+    tbody.innerHTML = '';
+    
+    if (conflictCount === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No specific conflicting reservations found in the system.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Format and display each conflict
+    conflicts.forEach((conflict) => {
+        try {
+            // Safely parse dates
+            let conflictStart, conflictEnd;
+            let startTimeStr = 'N/A';
+            let endTimeStr = 'N/A';
+            
+            try {
+                conflictStart = new Date(conflict.startTime);
+                conflictEnd = new Date(conflict.endTime);
+                startTimeStr = conflictStart.toLocaleDateString() + ' ' + conflictStart.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                endTimeStr = conflictEnd.toLocaleDateString() + ' ' + conflictEnd.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            } catch (dateError) {
+                // If date parsing fails, use raw strings
+                startTimeStr = conflict.startTime || 'N/A';
+                endTimeStr = conflict.endTime || 'N/A';
+            }
+            
+            // Status badge color
+            let statusBadgeClass = 'bg-secondary';
+            if (conflict.status === 'Reserved') statusBadgeClass = 'bg-success';
+            if (conflict.status === 'Pending') statusBadgeClass = 'bg-warning';
+            
+            // Booked by name
+            const bookedByName = conflict.citizenName || 
+                                (conflict.citizenID ? `Citizen ${conflict.citizenID}` : 'Unknown');
+            
+            // Conflict type
+            const conflictType = conflict.conflict_type || 
+                               conflict.conflictType || 
+                               'Time Overlap';
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>#${conflict.reservationID || 'N/A'}</strong></td>
+                <td>${bookedByName}</td>
+                <td>${startTimeStr}</td>
+                <td>${endTimeStr}</td>
+                <td><span class="badge ${statusBadgeClass}">${conflict.status || 'Unknown'}</span></td>
+                <td><small class="text-muted">${conflictType}</small></td>
+            `;
+            tbody.appendChild(row);
+        } catch (e) {
+            console.error('Error displaying conflict row:', e, conflict);
+        }
+    });
+    
+    // Show the modal
+    const modalElement = document.getElementById('conflictDetailsModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
+}
+
+// Optional: Helper function for the "Try Different Time" button
+function tryDifferentTime() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('conflictDetailsModal'));
+    if (modal) {
+        modal.hide();
+    }
+    // Optionally, reopen the reservation form
+    setTimeout(() => {
+        const addResModal = new bootstrap.Modal(document.getElementById('addResModal'));
+        addResModal.show();
+    }, 300);
+}
+
+// Update your form validation to use the modal
+async function validateReservationForm(spotID, startTime, endTime, amount, isEdit = false, reservationID = null) {
+    // ... existing validation code ...
+    
+    // When conflict is found, show modal instead of alert
+    const conflictCheck = await checkReservationWithDetails(spotID, startTime, endTime, reservationID);
+    
+    if (conflictCheck.hasConflict && conflictCheck.conflictingDetails.length > 0) {
+        // Show detailed modal instead of alert
+        showConflictDetailsModal(
+            conflictCheck.conflictingDetails,
+            startTime,
+            endTime,
+            spotID
+        );
+        
+        return {
+            isValid: false,
+            hasDetailedConflict: true,
+            conflictingReservations: conflictCheck.conflictingDetails
+        };
+    }
+}
+// Debug function to test API response
+async function testConflictAPI() {
+    // Test with some sample data
+    const testData = {
+        spotID: 1,
+        startTime: '2026-01-02T10:00',
+        endTime: '2026-01-02T11:00'
+    };
+    
+    console.log('Testing conflict API with:', testData);
     
     try {
-        // ... existing atomic reservation code ...
+        const response = await fetch(`${API_PATH}/check_conflict.php`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(testData)
+        });
         
-        if (result.success) {
-            removeOptimisticUpdate();
-            return {
-                success: true,
-                reservationID: result.reservationID,
-                message: result.message,
-                status: result.status
-            };
-        } else {
-            removeOptimisticUpdate();
-            return {
-                success: false,
-                error: result.error || 'Reservation failed',
-                conflicts: result.conflicts
-            };
-        }
+        const result = await response.json();
+        console.log('API Response:', result);
+        
+        // Show in modal to see structure
+        showConflictDetailsModal(result.conflictingReservations || []);
+        
     } catch (error) {
-        removeOptimisticUpdate();
+        console.error('Test API error:', error);
+    }
+}
+
+// Call this function in browser console: testConflictAPI()
+async function makeAtomicReservation(formData, isCitizen) {
+    try {
+        const response = await fetch(`${API_PATH}/reserve_atomic.php`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                citizenID: formData.citizenID,
+                spotID: formData.spotID,
+                startTime: formData.startTime,
+                endTime: formData.endTime,
+                amount: formData.amount,
+                paymentGateway: formData.paymentGateway,
+                userRole: isCitizen ? 'Citizen' : 'Admin'
+            })
+        });
+        
+        const result = await response.json();
+        console.log('Atomic reservation result:', result);
+        
+        return result;
+        
+    } catch (error) {
+        console.error('Atomic reservation error:', error);
         return {
             success: false,
             error: 'Network error. Please try again.'
         };
     }
 }
-
 // New function to confirm a reservation
 async function confirmReservation(reservationID) {
     if (isCitizen) {
@@ -929,79 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupRealTimeValidation(); // Add this line
 });
 
-// Updated conflict checking function with detailed conflict information
-async function checkReservationConflict(spotID, startTime, endTime, excludeReservationID = null) {
-    try {
-        const response = await fetch(`${API_PATH}/check_conflict.php`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                spotID: spotID,
-                startTime: startTime,
-                endTime: endTime,
-                excludeReservationID: excludeReservationID
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.hasConflict && result.conflictingReservations) {
-            // We already have conflict details from the API
-            return {
-                hasConflict: true,
-                conflictingDetails: result.conflictingReservations
-            };
-        }
-        
-        // Fallback: Fetch details manually if API didn't provide them
-        if (result.hasConflict) {
-            try {
-                const res = await fetch(`${API_PATH}/reservations.php`);
-                const allReservations = await res.json();
-                
-                // Find reservations for the same spot
-                const spotReservations = allReservations.filter(r => 
-                    r.spotID == spotID && 
-                    r.reservationID != excludeReservationID
-                );
-                
-                // Check for time overlaps manually
-                const newStart = new Date(startTime);
-                const newEnd = new Date(endTime);
-                
-                const conflicts = spotReservations.filter(r => {
-                    const existingStart = new Date(r.startTime);
-                    const existingEnd = new Date(r.endTime);
-                    
-                    // Check for overlap: NOT (new ends before existing starts OR new starts after existing ends)
-                    return !(newEnd <= existingStart || newStart >= existingEnd);
-                });
-                
-                if (conflicts.length > 0) {
-                    return {
-                        hasConflict: true,
-                        conflictingDetails: conflicts
-                    };
-                }
-            } catch (e) {
-                console.error('Error fetching conflict details:', e);
-            }
-            
-            return {
-                hasConflict: true,
-                conflictingDetails: []
-            };
-        }
-        
-        return { hasConflict: false, conflictingDetails: [] };
-        
-    } catch (error) {
-        console.error('Error checking reservation conflicts:', error);
-        return { hasConflict: false, conflictingDetails: [] };
-    }
-}
-    
-    // --- LOAD SPOTS (TABLE 2) ---
+// --- LOAD SPOTS (TABLE 2) ---
     async function loadSpots() {
         try {
             const res = await fetch(`${API_PATH}/spots.php`);
@@ -1038,82 +1170,100 @@ async function checkReservationConflict(spotID, startTime, endTime, excludeReser
 document.getElementById('addResForm').onsubmit = async (e) => {
     e.preventDefault();
     
-    // Get form values
-    const spotID = document.getElementById('addResSpot').value;
-    const startTime = document.getElementById('addResStart').value;
-    const endTime = document.getElementById('addResEnd').value;
-    const citizenID = document.getElementById('addResCitizen').value;
-    const amount = document.getElementById('addResAmount').value;
+    // Disable submit button to prevent double-click
+    const submitBtn = e.submitter;
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking availability...';
+    submitBtn.disabled = true;
     
-    // --- VALIDATION 1: Start time cannot be in the past ---
-    const currentTime = new Date();
-    const selectedStartTime = new Date(startTime);
-    
-    if (selectedStartTime < currentTime) {
-        alert('Error: Start time cannot be in the past. Please select a future date and time.');
-        return;
-    }
-    
-    // --- VALIDATION 2: End time cannot be before start time ---
-    const selectedEndTime = new Date(endTime);
-    if (selectedEndTime <= selectedStartTime) {
-        alert('Error: End time must be after start time.');
-        return;
-    }
-    
-    // --- VALIDATION 3: Check for overlapping reservations ---
-    const conflictCheck = await checkReservationConflict(spotID, startTime, endTime);
-    if (conflictCheck.hasConflict) {
-        // Build detailed error message
-        let errorMessage = 'Error: This parking spot is already booked during your selected time period.\n\n';
+    try {
+        // Get form values
+        const spotID = document.getElementById('addResSpot').value;
+        const startTime = document.getElementById('addResStart').value;
+        const endTime = document.getElementById('addResEnd').value;
+        const citizenID = document.getElementById('addResCitizen').value;
+        const amount = document.getElementById('addResAmount').value;
         
-        if (conflictCheck.conflictingDetails && conflictCheck.conflictingDetails.length > 0) {
-            errorMessage += 'Conflicting reservations:\n';
-            conflictCheck.conflictingDetails.forEach((conflict, index) => {
-                errorMessage += `${index + 1}. Reservation #${conflict.reservationID}:\n`;
-                errorMessage += `   Time: ${conflict.startTime} to ${conflict.endTime}\n`;
-                errorMessage += `   Status: ${conflict.status}\n`;
-                errorMessage += `   Booked by: ${conflict.citizenName || 'N/A'}\n\n`;
-            });
-        } else {
-            errorMessage += 'The selected time period overlaps with an existing reservation.';
+        // 1. Check for conflicts using your API
+        const conflictCheck = await checkReservationConflict(spotID, startTime, endTime);
+        
+        if (conflictCheck.hasConflict) {
+            if (conflictCheck.conflictingDetails && conflictCheck.conflictingDetails.length > 0) {
+                // Show detailed conflict modal
+                showConflictDetailsModal(conflictCheck.conflictingDetails);
+            } else {
+                alert(conflictCheck.message || 'Time slot not available.');
+            }
+            return;
         }
         
-        alert(errorMessage);
-        return;
-    }
-    
-    // --- Additional validation: Amount must be positive ---
-    if (parseFloat(amount) <= 0) {
-        alert('Error: Amount must be greater than 0.');
-        return;
-    }
-    
-    // All validations passed, submit the form
-    const requestData = {
-        citizenID: citizenID,
-        spotID: spotID,
-        startTime: startTime,
-        endTime: endTime,
-        amount: amount,
-        paymentGateway: document.getElementById('addResGateway').value,
-        userRole: isCitizen ? 'Citizen' : 'Admin'
-    };
-    
-    const result = await apiCall(`${API_PATH}/reservations.php`, 'POST', requestData);
-    
-    if (result && !result.error) {
-        bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
-        loadReservations();
+        // 2. Basic validation
+        const currentTime = new Date();
+        const selectedStartTime = new Date(startTime);
+        const selectedEndTime = new Date(endTime);
         
-        // Show appropriate message
-        const message = isCitizen 
-            ? 'Your reservation request has been submitted and is pending approval.'
-            : 'Reservation created successfully!';
-        alert(message);
+        if (selectedStartTime < currentTime) {
+            alert('Error: Start time cannot be in the past.');
+            return;
+        }
+        
+        if (selectedEndTime <= selectedStartTime) {
+            alert('Error: End time must be after start time.');
+            return;
+        }
+        
+        if (parseFloat(amount) <= 0) {
+            alert('Error: Amount must be greater than 0.');
+            return;
+        }
+        
+        // 3. Try atomic reservation
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Creating reservation...';
+        
+        const formData = {
+            citizenID: citizenID,
+            spotID: spotID,
+            startTime: startTime,
+            endTime: endTime,
+            amount: amount,
+            paymentGateway: document.getElementById('addResGateway').value
+        };
+        
+        const result = await makeAtomicReservation(formData, isCitizen);
+        
+        if (result.success) {
+            // Success
+            bootstrap.Modal.getInstance(document.getElementById('addResModal')).hide();
+            loadReservations();
+            
+            const message = result.message || 
+                (isCitizen 
+                    ? 'Reservation request submitted (pending approval)' 
+                    : 'Reservation created successfully');
+            alert(message);
+            
+            // Clear form
+            document.getElementById('addResForm').reset();
+        } else {
+            // Handle specific error types
+            if (result.code === 'DUPLICATE_ENTRY') {
+                alert('This time slot was just booked by another user. Please try a different time.');
+            } else if (result.conflicts) {
+                showConflictDetailsModal(result.conflicts);
+            } else {
+                alert(result.error || 'Reservation failed. Please try again.');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Reservation error:', error);
+        alert('An unexpected error occurred. Please try again.');
+    } finally {
+        // Restore button
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
     }
 };
-
 // --- EDIT RESERVATION FORM ---
 document.getElementById('editResForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -1123,128 +1273,77 @@ document.getElementById('editResForm').onsubmit = async (e) => {
         return;
     }
     
-    // Get form values
-    const reservationID = document.getElementById('editResID').value;
-    const spotID = document.getElementById('editResSpot').value;
-    const startTime = document.getElementById('editResStart').value;
-    const endTime = document.getElementById('editResEnd').value;
-    const amount = document.getElementById('editResAmount').value;
+    // Disable submit button to prevent double-click
+    const submitBtn = e.submitter;
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking availability...';
+    submitBtn.disabled = true;
     
-    // --- VALIDATION 1: Start time cannot be in the past ---
-    const currentTime = new Date();
-    const selectedStartTime = new Date(startTime);
-    
-    // For editing, we need to check if it's being changed to a past time
-    // First, get the original reservation to check
     try {
-        const res = await fetch(`${API_PATH}/reservations.php`);
-        const allReservations = await res.json();
-        const originalReservation = allReservations.find(r => r.reservationID == reservationID);
+        // Get form values
+        const reservationID = document.getElementById('editResID').value;
+        const spotID = document.getElementById('editResSpot').value;
+        const startTime = document.getElementById('editResStart').value;
+        const endTime = document.getElementById('editResEnd').value;
+        const amount = document.getElementById('editResAmount').value;
         
-        // If start time is being changed AND new time is in the past, show error
-        if (originalReservation && new Date(originalReservation.startTime).getTime() !== selectedStartTime.getTime()) {
-            if (selectedStartTime < currentTime) {
-                alert('Error: Start time cannot be changed to a past time.');
-                return;
+        // 1. Check for conflicts using your API (exclude current reservation)
+        const conflictCheck = await checkReservationConflict(spotID, startTime, endTime, reservationID);
+        
+        if (conflictCheck.hasConflict) {
+            if (conflictCheck.conflictingDetails && conflictCheck.conflictingDetails.length > 0) {
+                // Show detailed conflict modal
+                showConflictDetailsModal(conflictCheck.conflictingDetails);
+            } else {
+                alert(conflictCheck.message || 'Time slot not available.');
             }
+            return;
         }
+        
+        // 2. Basic validation
+        const selectedStartTime = new Date(startTime);
+        const selectedEndTime = new Date(endTime);
+        
+        if (selectedEndTime <= selectedStartTime) {
+            alert('Error: End time must be after start time.');
+            return;
+        }
+        
+        if (parseFloat(amount) <= 0) {
+            alert('Error: Amount must be greater than 0.');
+            return;
+        }
+        
+        // 3. Update the reservation
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Updating...';
+        
+        const result = await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
+            reservationID: reservationID,
+            citizenID: document.getElementById('editResCitizen').value,
+            spotID: spotID,
+            startTime: startTime,
+            endTime: endTime,
+            amount: amount,
+            paymentGateway: document.getElementById('editResGateway').value
+        });
+        
+        if (result && !result.error) {
+            bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
+            loadReservations();
+            alert('Reservation updated successfully!');
+        } else if (result && result.error) {
+            alert('Error: ' + result.error);
+        }
+        
     } catch (error) {
-        console.error('Error checking original reservation:', error);
-    }
-    
-    // --- VALIDATION 2: End time cannot be before start time ---
-    const selectedEndTime = new Date(endTime);
-    if (selectedEndTime <= selectedStartTime) {
-        alert('Error: End time must be after start time.');
-        return;
-    }
-    
-    // --- VALIDATION 3: Check for overlapping reservations (excluding current one) ---
-    const conflictCheck = await checkReservationConflict(spotID, startTime, endTime, reservationID);
-    if (conflictCheck.hasConflict) {
-        // Build detailed error message
-        let errorMessage = 'Error: This parking spot is already booked during your selected time period.\n\n';
-        
-        if (conflictCheck.conflictingDetails && conflictCheck.conflictingDetails.length > 0) {
-            errorMessage += 'Conflicting reservations:\n';
-            conflictCheck.conflictingDetails.forEach((conflict, index) => {
-                errorMessage += `${index + 1}. Reservation #${conflict.reservationID}:\n`;
-                errorMessage += `   Time: ${conflict.startTime} to ${conflict.endTime}\n`;
-                errorMessage += `   Status: ${conflict.status}\n`;
-                errorMessage += `   Booked by: ${conflict.citizenName || 'N/A'}\n\n`;
-            });
-        } else {
-            errorMessage += 'The selected time period overlaps with an existing reservation.';
-        }
-        
-        alert(errorMessage);
-        return;
-    }
-    
-    // --- Additional validation: Amount must be positive ---
-    if (parseFloat(amount) <= 0) {
-        alert('Error: Amount must be greater than 0.');
-        return;
-    }
-    
-    // All validations passed, submit the form
-    const result = await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
-        reservationID: reservationID,
-        citizenID: document.getElementById('editResCitizen').value,
-        spotID: spotID,
-        startTime: startTime,
-        endTime: endTime,
-        amount: amount,
-        paymentGateway: document.getElementById('editResGateway').value
-    });
-    
-    if (result && !result.error) {
-        bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
-        loadReservations();
-        alert('Reservation updated successfully!');
+        console.error('Edit reservation error:', error);
+        alert('An unexpected error occurred. Please try again.');
+    } finally {
+        // Restore button
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
     }
 };
-    // Reservations - Edit form with validation
-document.getElementById('editResForm').onsubmit = async (e) => {
-    e.preventDefault();
-    
-    if (isCitizen) {
-        alert('Citizens cannot edit reservations.');
-        return;
-    }
-    
-    // Get form values
-    const reservationID = document.getElementById('editResID').value;
-    const spotID = document.getElementById('editResSpot').value;
-    const startTime = document.getElementById('editResStart').value;
-    const endTime = document.getElementById('editResEnd').value;
-    
-    // Validate start time is before end time
-    if (new Date(startTime) >= new Date(endTime)) {
-        alert('Error: Start time must be before end time.');
-        return;
-    }
-    
-    // Check for reservation conflicts (excluding current reservation)
-    const conflictCheck = await checkReservationConflict(spotID, startTime, endTime, reservationID);
-    if (conflictCheck.hasConflict) {
-        alert(`Error: ${conflictCheck.message}`);
-        return;
-    }
-    
-    await apiCall(`${API_PATH}/reservations.php`, 'PUT', {
-        reservationID: reservationID,
-        citizenID: document.getElementById('editResCitizen').value,
-        spotID: spotID,
-        startTime: startTime,
-        endTime: endTime,
-        amount: document.getElementById('editResAmount').value,
-        paymentGateway: document.getElementById('editResGateway').value
-    });
-    bootstrap.Modal.getInstance(document.getElementById('editResModal')).hide();
-    loadReservations();
-};
-    
     // Spots - Add form
     document.getElementById('addSpotForm').onsubmit = async (e) => {
         e.preventDefault();
@@ -1577,70 +1676,6 @@ async function handleReservationFormSubmit(formData, isEdit = false, reservation
     }
 }
 
-// Function to show detailed conflict information in a modal
-function showConflictDetailsModal(conflicts) {
-    let conflictHtml = `
-        <div class="modal fade" id="conflictDetailsModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header bg-warning">
-                        <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Time Slot Conflict</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>The parking spot is already booked during your selected time.</p>
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Reservation ID</th>
-                                        <th>Booked By</th>
-                                        <th>Start Time</th>
-                                        <th>End Time</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>`;
-    
-    conflicts.forEach(conflict => {
-        const start = new Date(conflict.startTime).toLocaleString();
-        const end = new Date(conflict.endTime).toLocaleString();
-        conflictHtml += `
-            <tr>
-                <td>#${conflict.reservationID}</td>
-                <td>${conflict.citizenName}</td>
-                <td>${start}</td>
-                <td>${end}</td>
-                <td><span class="badge ${conflict.status === 'Reserved' ? 'bg-success' : 'bg-warning'}">${conflict.status}</span></td>
-            </tr>`;
-    });
-    
-    conflictHtml += `
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="alert alert-info mt-3">
-                            <i class="fas fa-info-circle me-2"></i>
-                            Please select a different time slot or choose another parking spot.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    
-    // Add modal to DOM if not already present
-    if (!document.getElementById('conflictDetailsModal')) {
-        document.body.insertAdjacentHTML('beforeend', conflictHtml);
-    }
-    
-    // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById('conflictDetailsModal'));
-    modal.show();
-}
-
 // Update your existing form submission handlers
 document.getElementById('addResForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -1734,44 +1769,63 @@ document.getElementById('editResForm').onsubmit = async (e) => {
     return json;
 }
 
-    async function checkReservationConflict(spotID, startTime, endTime, excludeReservationID = null) {
+    // --- ENHANCED CONFLICT CHECKING (Calls your API) ---
+async function checkReservationConflict(spotID, startTime, endTime, excludeReservationID = null) {
     try {
-        // Fetch all reservations for the specific spot
-        const res = await fetch(`${API_PATH}/reservations.php`);
-        const reservations = await res.json();
+        console.log('Checking conflict for:', {spotID, startTime, endTime, excludeReservationID});
         
-        const newStart = new Date(startTime);
-        const newEnd = new Date(endTime);
+        // Call your check_conflict.php API
+        const response = await fetch(`${API_PATH}/check_conflict.php`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                spotID: spotID,
+                startTime: startTime,
+                endTime: endTime,
+                excludeReservationID: excludeReservationID
+            })
+        });
         
-        // Check each existing reservation for the same spot
-        for (const reservation of reservations) {
-            // Skip the reservation being edited
-            if (excludeReservationID && reservation.reservationID == excludeReservationID) {
-                continue;
-            }
-            
-            // Only check reservations for the same spot
-            if (reservation.spotID == spotID) {
-                const existingStart = new Date(reservation.startTime);
-                const existingEnd = new Date(reservation.endTime);
-                
-                // Check for time overlap
-                if ((newStart >= existingStart && newStart < existingEnd) ||
-                    (newEnd > existingStart && newEnd <= existingEnd) ||
-                    (newStart <= existingStart && newEnd >= existingEnd)) {
-                    return true; // Conflict found
-                }
-            }
+        const result = await response.json();
+        console.log('📊 API Response:', result);
+        console.log('Conflict check result:', result);
+        
+        if (result.error) {
+            // Handle API error
+            return {
+                hasConflict: true,
+                errorType: 'api_error',
+                message: result.error,
+                conflictingDetails: []
+            };
         }
         
-        return false; // No conflicts
+        // Check if there are conflicts
+        if (result.hasConflict && result.conflictingReservations && result.conflictingReservations.length > 0) {
+            return {
+                hasConflict: true,
+                errorType: 'time_conflict',
+                message: 'Parking spot is already booked during selected time.',
+                conflictingDetails: result.conflictingReservations
+            };
+        }
+        
+        // No conflicts found
+        return {
+            hasConflict: false,
+            spotStatus: result.spotStatus
+        };
+        
     } catch (error) {
         console.error('Error checking reservation conflicts:', error);
-        return false; // Assume no conflict if there's an error
+        return {
+            hasConflict: false, // Assume no conflict if error
+            errorType: 'network',
+            message: 'Unable to check availability. Please try again.',
+            conflictingDetails: []
+        };
     }
 }
-
-
     async function loadDropdowns() {
         // Load Citizens, Spots, Lots, Sensors
         const [cit, spots, lots, sensors] = await Promise.all([
